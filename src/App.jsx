@@ -175,16 +175,16 @@ export default function App() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
         <SummaryCard
           icon={<DollarSign className="w-6 h-6 text-primary" />}
-          title="Net Worth"
-          value={`S$ ${portfolio.summary.networth_sgd.toLocaleString()}`}
+          title="Net Worth (SGD)"
+          value={portfolio.summary.networth_sgd.toLocaleString()}
           trend="+12.5%"
           trendPositive={true}
         />
         
         <SummaryCard
           icon={<TrendingUp className="w-6 h-6 text-success" />}
-          title="Total Profit"
-          value={`S$ ${portfolio.summary.profit_sgd.toLocaleString()}`}
+          title="Total Profit (SGD)"
+          value={portfolio.summary.profit_sgd.toLocaleString()}  
           trend={portfolio.summary.profit_sgd >= 0 ? "+8.2%" : "-3.1%"}
           trendPositive={portfolio.summary.profit_sgd >= 0}
         />
@@ -276,9 +276,9 @@ export default function App() {
           <thead>
             <tr className="border-b border-border">
               <th className="py-3 text-left font-semibold text-gray-400">Asset Class</th>
-              <th className="py-3 text-right font-semibold text-gray-400">Invested</th>
-              <th className="py-3 text-right font-semibold text-gray-400">Current</th>
-              <th className="py-3 text-right font-semibold text-gray-400">Profit</th>
+              <th className="py-3 text-right font-semibold text-gray-400">Invested (SGD)</th>
+              <th className="py-3 text-right font-semibold text-gray-400">Current (SGD)</th>
+              <th className="py-3 text-right font-semibold text-gray-400">Profit (SGD)  </th>
               <th className="py-3 text-right font-semibold text-gray-400">Profit %</th>
               <th className="py-3 text-right font-semibold text-gray-400">Portfolio %</th>
             </tr>
@@ -292,10 +292,10 @@ export default function App() {
                 whileHover={{ x: 4 }}
               >
                 <td className="py-3 font-semibold">{row.asset_class}</td>
-                <td className="py-3 text-right">S$ {row.investment_sgd.toLocaleString()}</td>
-                <td className="py-3 text-right">S$ {row.value_sgd.toLocaleString()}</td>
+                <td className="py-3 text-right">{row.investment_sgd.toLocaleString()}</td>
+                <td className="py-3 text-right">{row.value_sgd.toLocaleString()}</td>
                 <td className={`py-3 text-right font-semibold ${row.profit_sgd >= 0 ? 'text-success' : 'text-danger'}`}>
-                  {row.profit_sgd >= 0 ? '▲' : '▼'} S$ {row.profit_sgd.toLocaleString()}
+                  {row.profit_sgd >= 0 ? '▲' : '▼'} {row.profit_sgd.toLocaleString()}
                 </td>
                 <td className={`py-3 text-right font-semibold ${row.profit_pct >= 0 ? 'text-success' : 'text-danger'}`}>
                   {row.profit_pct >= 0 ? '▲' : '▼'} {row.profit_pct}%
@@ -381,10 +381,10 @@ export default function App() {
                       </tr>
                       <tr>
                         <td className="py-2 font-semibold">TOTAL SGD</td>
-                        <td className="py-2 text-right">S$ {totalMarketSGD.toLocaleString()}</td>
-                        <td className="py-2 text-right">S$ {totalInvestmentSGD.toLocaleString()}</td>
+                        <td className="py-2 text-right">{totalMarketSGD.toLocaleString()}</td>
+                        <td className="py-2 text-right">{totalInvestmentSGD.toLocaleString()}</td>
                         <td className={`py-2 text-right font-semibold ${totalGainSGD >= 0 ? 'text-success' : 'text-danger'}`}>
-                          {totalGainSGD >= 0 ? '▲' : '▼'} S$ {totalGainSGD.toLocaleString()}
+                          {totalGainSGD >= 0 ? '▲' : '▼'} {totalGainSGD.toLocaleString()}
                         </td>
                         <td className="py-2 text-right">{totalPortfolio.toFixed(2)}%</td>
                       </tr>
