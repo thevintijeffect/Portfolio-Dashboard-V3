@@ -269,31 +269,7 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="bg-card border border-border rounded-3xl p-6">
-                <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-                  <ShieldAlert className="w-5 h-5 text-primary" />
-                  Diversification
-                </h2>
-                <div className="text-4xl font-bold mb-2">
-                  {analytics.diversification?.score?.toFixed?.(1) || 0}
-                </div>
-                <p className="text-sm text-gray-400 mb-6">/ 100 score</p>
-                <div className="space-y-3">
-                  <MiniMetric
-                    label="Largest holding"
-                    value={`${analytics.concentration?.largest_holding_pct?.toFixed?.(1) || 0}%`}
-                  />
-                  <MiniMetric
-                    label="Top 5"
-                    value={`${analytics.concentration?.top5_pct?.toFixed?.(1) || 0}%`}
-                  />
-                  <MiniMetric
-                    label="Top 10"
-                    value={`${analytics.concentration?.top10_pct?.toFixed?.(1) || 0}%`}
-                  />
-                </div>
-              </div>
-            </motion.section>
+              </motion.section>
 
             <motion.section
               initial={{ opacity: 0, y: 12 }}
