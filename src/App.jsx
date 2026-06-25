@@ -49,8 +49,8 @@ export default function App() {
     const resAnalytics = await fetch(`${API}/analytics`)
     const dataPortfolio = await resPortfolio.json()
     const dataAnalytics = await resAnalytics.json()
-    setPortfolio(dataPortfolio)
-    setAnalytics(dataAnalytics)
+    setPortfolio(dataPortfolio || {})
+    setAnalytics(dataAnalytics || {})
     setRefreshTs(new Date().toLocaleString())
   }
 
@@ -117,19 +117,21 @@ export default function App() {
     row.asset_class?.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
-  const currentHoldings =
-    activeTab === "holdings" && selected
-      ? holdings.filter(h => (h.asset || "").toLowerCase().includes(searchTerm.toLowerCase()))
-      : []
+  const currentHoldings = useMemo(() => {
+    if (activeTab !== "holdings" || !selected) return []
+    return holdings.filter(h =>
+      (h.asset || "").toLowerCase().includes(searchTerm.toLowerCase())
+    )
+  }, [holdings, searchTerm, activeTab, selected])
 
   const selectedTotals = useMemo(() => {
-    const totalMarket = currentHoldings.reduce((a, b) => a + (b.market_value || 0), 0)
-    const totalInvestment = currentHoldings.reduce((a, b) => a + (b.investment_value || 0), 0)
-    const totalGain = currentHoldings.reduce((a, b) => a + (b.unrealised_gain || 0), 0)
-    const totalPortfolio = currentHoldings.reduce((a, b) => a + (b.portfolio_pct || 0), 0)
-    const totalMarketSGD = currentHoldings.reduce((a, b) => a + (b.value_sgd || 0), 0)
-    const totalInvestmentSGD = currentHoldings.reduce((a, b) => a + (b.investment_sgd || 0), 0)
-    const totalGainSGD = currentHoldings.reduce((a, b) => a + (b.profit_sgd || 0), 0)
+    const totalMarket = currentHoldings.reduce((a, b) => a + Number(b.market_value || 0), 0)
+    const totalInvestment = currentHoldings.reduce((a, b) => a + Number(b.investment_value || 0), 0)
+    const totalGain = currentHoldings.reduce((a, b) => a + Number(b.unrealised_gain || 0), 0)
+    const totalPortfolio = currentHoldings.reduce((a, b) => a + Number(b.portfolio_pct || 0), 0)
+    const totalMarketSGD = currentHoldings.reduce((a, b) => a + Number(b.value_sgd || 0), 0)
+    const totalInvestmentSGD = currentHoldings.reduce((a, b) => a + Number(b.investment_sgd || 0), 0)
+    const totalGainSGD = currentHoldings.reduce((a, b) => a + Number(b.profit_sgd || 0), 0)
     return {
       totalMarket,
       totalInvestment,
@@ -330,15 +332,15 @@ export default function App() {
                         whileHover={{ x: 3 }}
                       >
                         <td className="py-4 font-semibold">{row.asset_class}</td>
-                        <td className="py-4 text-right">{row.investment_sgd.toLocaleString()}</td>
-                        <td className="py-4 text-right">{row.value_sgd.toLocaleString()}</td>
-                        <td className={`py-4 text-right font-semibold ${row.profit_sgd >= 0 ? "text-success" : "text-danger"}`}>
-                          {row.profit_sgd >= 0 ? "▲" : "▼"} {row.profit_sgd.toLocaleString()}
+                        <td className="py-4 text-right">{Number(row.investment_sgd || 0).toLocaleString()}</td>
+                        <td className="py-4 text-right">{Number(row.value_sgd || 0).toLocaleString()}</td>
+                        <td className={`py-4 text-right font-semibold ${Number(row.profit_sgd || 0) >= 0 ? "text-success" : "text-danger"}`}>
+                          {Number(row.profit_sgd || 0) >= 0 ? "▲" : "▼"} {Number(row.profit_sgd || 0).toLocaleString()}
                         </td>
-                        <td className={`py-4 text-right font-semibold ${row.profit_pct >= 0 ? "text-success" : "text-danger"}`}>
-                          {row.profit_pct >= 0 ? "▲" : "▼"} {row.profit_pct}%
+                        <td className={`py-4 text-right font-semibold ${Number(row.profit_pct || 0) >= 0 ? "text-success" : "text-danger"}`}>
+                          {Number(row.profit_pct || 0) >= 0 ? "▲" : "▼"} {Number(row.profit_pct || 0).toFixed(2)}%
                         </td>
-                        <td className="py-4 text-right">{row.portfolio_pct}%</td>
+                        <td className="py-4 text-right">{Number(row.portfolio_pct || 0).toFixed(2)}%</td>
                       </motion.tr>
                     ))}
                   </tbody>
@@ -382,9 +384,20 @@ export default function App() {
                   Select an asset class from the Overview tab or use the list below.
                 </p>
               </div>
-              <div className="flex items-center gap-2 text-sm text-gray-400">
-                <Search className="w-4 h-4" />
-                <span>{selected || "No asset class selected"}</span>
+              <div className="flex items-center gap-2">
+                {selected && (
+                  <button
+                    onClick={() => setSelected(null)}
+                    className="flex items-center gap-2 text-sm text-gray-400 hover:text-white px-3 py-2 rounded-xl border border-border"
+                  >
+                    <ArrowLeft className="w-4 h-4" />
+                    Back
+                  </button>
+                )}
+                <div className="flex items-center gap-2 text-sm text-gray-400">
+                  <Search className="w-4 h-4" />
+                  <span>{selected || "No asset class selected"}</span>
+                </div>
               </div>
             </div>
 
@@ -395,7 +408,10 @@ export default function App() {
                   {assetClasses.map((row, i) => (
                     <button
                       key={i}
-                      onClick={() => setSelected(row.asset_class)}
+                      onClick={() => {
+                        setSelected(row.asset_class)
+                        setHoldings([])
+                      }}
                       className={`w-full text-left px-4 py-3 rounded-xl border transition-colors ${
                         selected === row.asset_class
                           ? "bg-primary/15 border-primary text-white"
@@ -404,7 +420,7 @@ export default function App() {
                     >
                       <div className="font-semibold">{row.asset_class}</div>
                       <div className="text-xs text-gray-500 mt-1">
-                        SGD {row.value_sgd.toLocaleString()} • {row.portfolio_pct}%
+                        SGD {Number(row.value_sgd || 0).toLocaleString()} • {Number(row.portfolio_pct || 0).toFixed(2)}%
                       </div>
                     </button>
                   ))}
@@ -419,6 +435,10 @@ export default function App() {
                 ) : holdingsLoading ? (
                   <div className="h-full min-h-[300px] flex items-center justify-center text-gray-400 bg-dark/30 border border-border rounded-2xl">
                     Loading holdings...
+                  </div>
+                ) : currentHoldings.length === 0 ? (
+                  <div className="h-full min-h-[300px] flex items-center justify-center text-gray-400 bg-dark/30 border border-border rounded-2xl">
+                    No holdings found for {selected}.
                   </div>
                 ) : (
                   <div className="space-y-6">
@@ -442,13 +462,6 @@ export default function App() {
                           <h3 className="text-lg font-semibold">{selected} Holdings</h3>
                           <p className="text-sm text-gray-500">Showing {currentHoldings.length} items</p>
                         </div>
-                        <button
-                          onClick={() => setSelected(null)}
-                          className="flex items-center gap-2 text-sm text-gray-400 hover:text-white"
-                        >
-                          <ArrowLeft className="w-4 h-4" />
-                          Clear selection
-                        </button>
                       </div>
 
                       <div className="overflow-x-auto">
@@ -469,17 +482,17 @@ export default function App() {
                             {currentHoldings.map((h, i) => (
                               <tr key={i} className="border-b border-border/60 hover:bg-hover transition-colors">
                                 <td className="py-4 font-semibold">{h.asset || "-"}</td>
-                                <td className="py-4 text-right">{(h.qty ?? 0).toLocaleString()}</td>
-                                <td className="py-4 text-right">{(h.current_price ?? 0).toLocaleString()}</td>
-                                <td className="py-4 text-right">{(h.market_value ?? 0).toLocaleString()}</td>
-                                <td className="py-4 text-right">{(h.investment_value ?? 0).toLocaleString()}</td>
-                                <td className={`py-4 text-right font-semibold ${h.unrealised_gain >= 0 ? "text-success" : "text-danger"}`}>
-                                  {h.unrealised_gain >= 0 ? "▲" : "▼"} {(h.unrealised_gain ?? 0).toLocaleString()}
+                                <td className="py-4 text-right">{Number(h.qty || 0).toLocaleString()}</td>
+                                <td className="py-4 text-right">{Number(h.current_price || 0).toLocaleString()}</td>
+                                <td className="py-4 text-right">{Number(h.market_value || 0).toLocaleString()}</td>
+                                <td className="py-4 text-right">{Number(h.investment_value || 0).toLocaleString()}</td>
+                                <td className={`py-4 text-right font-semibold ${Number(h.unrealised_gain || 0) >= 0 ? "text-success" : "text-danger"}`}>
+                                  {Number(h.unrealised_gain || 0) >= 0 ? "▲" : "▼"} {Number(h.unrealised_gain || 0).toLocaleString()}
                                 </td>
-                                <td className={`py-4 text-right font-semibold ${h.unrealised_gain_pct >= 0 ? "text-success" : "text-danger"}`}>
-                                  {h.unrealised_gain_pct >= 0 ? "▲" : "▼"} {(h.unrealised_gain_pct ?? 0).toFixed(2)}%
+                                <td className={`py-4 text-right font-semibold ${Number(h.unrealised_gain_pct || 0) >= 0 ? "text-success" : "text-danger"}`}>
+                                  {Number(h.unrealised_gain_pct || 0) >= 0 ? "▲" : "▼"} {Number(h.unrealised_gain_pct || 0).toFixed(2)}%
                                 </td>
-                                <td className="py-4 text-right">{(h.portfolio_pct ?? 0).toFixed(2)}%</td>
+                                <td className="py-4 text-right">{Number(h.portfolio_pct || 0).toFixed(2)}%</td>
                               </tr>
                             ))}
                           </tbody>
@@ -674,5 +687,16 @@ function ChartPanel({ title, icon, children }) {
       </h2>
       {children}
     </motion.div>
+  )
+}
+
+function SummaryTile({ label, value, positive = true }) {
+  return (
+    <div className="bg-dark/60 border border-border rounded-2xl p-4">
+      <div className="text-sm text-gray-400 mb-1">{label}</div>
+      <div className={`text-xl font-bold ${positive ? "text-white" : "text-danger"}`}>
+        {value}
+      </div>
+    </div>
   )
 }
