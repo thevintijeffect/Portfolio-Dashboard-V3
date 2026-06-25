@@ -23,7 +23,9 @@ import {
   Layers3,
   ShieldAlert,
   Wallet,
-  LineChart
+  LineChart,
+  ArrowLeft,
+  BarChart3
 } from "lucide-react"
 import { motion } from "framer-motion"
 
@@ -52,6 +54,21 @@ export default function App() {
     setRefreshTs(new Date().toLocaleString())
   }
 
+  async function loadHoldings(assetClass) {
+    if (!assetClass) return
+    setHoldingsLoading(true)
+    try {
+      const res = await fetch(`${API}/holdings/${assetClass}`)
+      const data = await res.json()
+      setHoldings(Array.isArray(data) ? data : [])
+    } catch (err) {
+      console.log(err)
+      setHoldings([])
+    } finally {
+      setHoldingsLoading(false)
+    }
+  }
+
   useEffect(() => {
     ;(async () => {
       try {
@@ -65,20 +82,9 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    if (!selected || activeTab !== "holdings") return
-    ;(async () => {
-      setHoldingsLoading(true)
-      try {
-        const res = await fetch(`${API}/holdings/${selected}`)
-        const data = await res.json()
-        setHoldings(Array.isArray(data) ? data : [])
-      } catch (err) {
-        console.log(err)
-        setHoldings([])
-      } finally {
-        setHoldingsLoading(false)
-      }
-    })()
+    if (activeTab === "holdings" && selected) {
+      loadHoldings(selected)
+    }
   }, [selected, activeTab])
 
   const handleRefresh = async () => {
@@ -86,9 +92,7 @@ export default function App() {
     try {
       await loadAll()
       if (activeTab === "holdings" && selected) {
-        const res = await fetch(`${API}/holdings/${selected}`)
-        const data = await res.json()
-        setHoldings(Array.isArray(data) ? data : [])
+        await loadHoldings(selected)
       }
     } catch (err) {
       console.log(err)
@@ -113,10 +117,29 @@ export default function App() {
     row.asset_class?.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
-  const selectedRows =
+  const currentHoldings =
     activeTab === "holdings" && selected
       ? holdings.filter(h => (h.asset || "").toLowerCase().includes(searchTerm.toLowerCase()))
       : []
+
+  const selectedTotals = useMemo(() => {
+    const totalMarket = currentHoldings.reduce((a, b) => a + (b.market_value || 0), 0)
+    const totalInvestment = currentHoldings.reduce((a, b) => a + (b.investment_value || 0), 0)
+    const totalGain = currentHoldings.reduce((a, b) => a + (b.unrealised_gain || 0), 0)
+    const totalPortfolio = currentHoldings.reduce((a, b) => a + (b.portfolio_pct || 0), 0)
+    const totalMarketSGD = currentHoldings.reduce((a, b) => a + (b.value_sgd || 0), 0)
+    const totalInvestmentSGD = currentHoldings.reduce((a, b) => a + (b.investment_sgd || 0), 0)
+    const totalGainSGD = currentHoldings.reduce((a, b) => a + (b.profit_sgd || 0), 0)
+    return {
+      totalMarket,
+      totalInvestment,
+      totalGain,
+      totalPortfolio,
+      totalMarketSGD,
+      totalInvestmentSGD,
+      totalGainSGD
+    }
+  }, [currentHoldings])
 
   if (loading || !portfolio.summary) {
     return (
@@ -146,9 +169,7 @@ export default function App() {
                 <Wallet className="w-9 h-9 text-primary" />
                 <h1 className="text-3xl lg:text-4xl font-bold">Portfolio Dashboard</h1>
               </div>
-              {refreshTs && (
-                <p className="text-sm text-gray-500 mt-2">Last updated: {refreshTs}</p>
-              )}
+              {refreshTs && <p className="text-sm text-gray-500 mt-2">Last updated: {refreshTs}</p>}
             </div>
 
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
@@ -157,7 +178,11 @@ export default function App() {
                 <input
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder={activeTab === "holdings" ? "Search holdings..." : "Search asset classes..."}
+                  placeholder={
+                    activeTab === "holdings"
+                      ? "Search holdings..."
+                      : "Search asset classes..."
+                  }
                   className="bg-transparent outline-none text-white placeholder:text-gray-500 w-full lg:w-72"
                 />
               </div>
@@ -175,19 +200,27 @@ export default function App() {
 
         <div className="flex gap-2 mb-6 bg-card border border-border p-1 rounded-2xl w-fit">
           {[
-            { key: "overview", label: "Overview" },
-            { key: "holdings", label: "Holdings" }
-          ].map(tab => (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              className={`px-4 py-2 rounded-xl transition-colors ${
-                activeTab === tab.key ? "bg-primary text-white" : "text-gray-400 hover:text-white"
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
+            { key: "overview", label: "Overview", icon: Wallet },
+            { key: "holdings", label: "Holdings", icon: Layers3 },
+            { key: "analytics", label: "Analytics", icon: BarChart3 }
+          ].map(tab => {
+            const Icon = tab.icon
+            return (
+              <button
+                key={tab.key}
+                onClick={() => {
+                  setActiveTab(tab.key)
+                  setSearchTerm("")
+                }}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-colors ${
+                  activeTab === tab.key ? "bg-primary text-white" : "text-gray-400 hover:text-white"
+                }`}
+              >
+                <Icon className="w-4 h-4" />
+                {tab.label}
+              </button>
+            )
+          })}
         </div>
 
         {activeTab === "overview" && (
@@ -260,7 +293,250 @@ export default function App() {
               </div>
             </motion.section>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            <motion.section
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-card border border-border rounded-3xl p-6 lg:p-8 mb-6"
+            >
+              <div className="flex items-center justify-between mb-5">
+                <h2 className="text-2xl font-semibold flex items-center gap-2">
+                  <Layers3 className="w-5 h-5 text-primary" />
+                  Asset Classes
+                </h2>
+                <span className="text-sm text-gray-500">Tap a row to view holdings</span>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[900px]">
+                  <thead>
+                    <tr className="border-b border-border text-sm text-gray-400">
+                      <th className="py-3 text-left font-semibold">Asset Class</th>
+                      <th className="py-3 text-right font-semibold">Invested (SGD)</th>
+                      <th className="py-3 text-right font-semibold">Current (SGD)</th>
+                      <th className="py-3 text-right font-semibold">Profit (SGD)</th>
+                      <th className="py-3 text-right font-semibold">Profit %</th>
+                      <th className="py-3 text-right font-semibold">Portfolio %</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredAssetClasses.map((row, i) => (
+                      <motion.tr
+                        key={i}
+                        onClick={() => {
+                          setSelected(row.asset_class)
+                          setActiveTab("holdings")
+                        }}
+                        className="border-b border-border/60 cursor-pointer hover:bg-hover transition-colors"
+                        whileHover={{ x: 3 }}
+                      >
+                        <td className="py-4 font-semibold">{row.asset_class}</td>
+                        <td className="py-4 text-right">{row.investment_sgd.toLocaleString()}</td>
+                        <td className="py-4 text-right">{row.value_sgd.toLocaleString()}</td>
+                        <td className={`py-4 text-right font-semibold ${row.profit_sgd >= 0 ? "text-success" : "text-danger"}`}>
+                          {row.profit_sgd >= 0 ? "▲" : "▼"} {row.profit_sgd.toLocaleString()}
+                        </td>
+                        <td className={`py-4 text-right font-semibold ${row.profit_pct >= 0 ? "text-success" : "text-danger"}`}>
+                          {row.profit_pct >= 0 ? "▲" : "▼"} {row.profit_pct}%
+                        </td>
+                        <td className="py-4 text-right">{row.portfolio_pct}%</td>
+                      </motion.tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </motion.section>
+
+            {analytics.risk_signals?.length > 0 && (
+              <motion.section
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-gradient-to-r from-red-900/40 to-pink-900/40 rounded-3xl border border-red-500/25 p-6 lg:p-8"
+              >
+                <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">
+                  <TrendingDown className="w-6 h-6 text-danger" />
+                  Risk Signals
+                </h2>
+                <ul className="space-y-2">
+                  {analytics.risk_signals.map((risk, i) => (
+                    <li key={i} className="flex items-center gap-2 text-danger">
+                      <ChevronDown className="w-4 h-4" />
+                      {risk}
+                    </li>
+                  ))}
+                </ul>
+              </motion.section>
+            )}
+          </>
+        )}
+
+        {activeTab === "holdings" && (
+          <motion.section
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-card border border-border rounded-3xl p-6 lg:p-8"
+          >
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between mb-5">
+              <div>
+                <h2 className="text-2xl font-semibold">Holdings Drill-Down</h2>
+                <p className="text-sm text-gray-500 mt-1">
+                  Select an asset class from the Overview tab or use the list below.
+                </p>
+              </div>
+              <div className="flex items-center gap-2 text-sm text-gray-400">
+                <Search className="w-4 h-4" />
+                <span>{selected || "No asset class selected"}</span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 xl:grid-cols-[280px_1fr] gap-6">
+              <div className="bg-dark/50 border border-border rounded-2xl p-4">
+                <div className="text-sm text-gray-400 mb-3">Asset classes</div>
+                <div className="space-y-2">
+                  {assetClasses.map((row, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setSelected(row.asset_class)}
+                      className={`w-full text-left px-4 py-3 rounded-xl border transition-colors ${
+                        selected === row.asset_class
+                          ? "bg-primary/15 border-primary text-white"
+                          : "bg-transparent border-border text-gray-300 hover:bg-hover"
+                      }`}
+                    >
+                      <div className="font-semibold">{row.asset_class}</div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        SGD {row.value_sgd.toLocaleString()} • {row.portfolio_pct}%
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                {!selected ? (
+                  <div className="h-full min-h-[300px] flex items-center justify-center text-gray-400 bg-dark/30 border border-border rounded-2xl">
+                    Select an asset class to see holdings.
+                  </div>
+                ) : holdingsLoading ? (
+                  <div className="h-full min-h-[300px] flex items-center justify-center text-gray-400 bg-dark/30 border border-border rounded-2xl">
+                    Loading holdings...
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+                      <SummaryTile label="Market Value" value={selectedTotals.totalMarket.toLocaleString()} />
+                      <SummaryTile label="Investment" value={selectedTotals.totalInvestment.toLocaleString()} />
+                      <SummaryTile
+                        label="Gain"
+                        value={selectedTotals.totalGain.toLocaleString()}
+                        positive={selectedTotals.totalGain >= 0}
+                      />
+                      <SummaryTile
+                        label="Portfolio %"
+                        value={`${selectedTotals.totalPortfolio.toFixed(2)}%`}
+                      />
+                    </div>
+
+                    <div className="bg-dark/40 border border-border rounded-2xl p-4">
+                      <div className="flex items-center justify-between mb-4">
+                        <div>
+                          <h3 className="text-lg font-semibold">{selected} Holdings</h3>
+                          <p className="text-sm text-gray-500">Showing {currentHoldings.length} items</p>
+                        </div>
+                        <button
+                          onClick={() => setSelected(null)}
+                          className="flex items-center gap-2 text-sm text-gray-400 hover:text-white"
+                        >
+                          <ArrowLeft className="w-4 h-4" />
+                          Clear selection
+                        </button>
+                      </div>
+
+                      <div className="overflow-x-auto">
+                        <table className="w-full min-w-[1000px]">
+                          <thead>
+                            <tr className="border-b border-border text-sm text-gray-400">
+                              <th className="py-3 text-left font-semibold">Name</th>
+                              <th className="py-3 text-right font-semibold">Qty</th>
+                              <th className="py-3 text-right font-semibold">Price</th>
+                              <th className="py-3 text-right font-semibold">Market Value</th>
+                              <th className="py-3 text-right font-semibold">Investment</th>
+                              <th className="py-3 text-right font-semibold">Gain</th>
+                              <th className="py-3 text-right font-semibold">Gain %</th>
+                              <th className="py-3 text-right font-semibold">Portfolio %</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {currentHoldings.map((h, i) => (
+                              <tr key={i} className="border-b border-border/60 hover:bg-hover transition-colors">
+                                <td className="py-4 font-semibold">{h.asset || "-"}</td>
+                                <td className="py-4 text-right">{(h.qty ?? 0).toLocaleString()}</td>
+                                <td className="py-4 text-right">{(h.current_price ?? 0).toLocaleString()}</td>
+                                <td className="py-4 text-right">{(h.market_value ?? 0).toLocaleString()}</td>
+                                <td className="py-4 text-right">{(h.investment_value ?? 0).toLocaleString()}</td>
+                                <td className={`py-4 text-right font-semibold ${h.unrealised_gain >= 0 ? "text-success" : "text-danger"}`}>
+                                  {h.unrealised_gain >= 0 ? "▲" : "▼"} {(h.unrealised_gain ?? 0).toLocaleString()}
+                                </td>
+                                <td className={`py-4 text-right font-semibold ${h.unrealised_gain_pct >= 0 ? "text-success" : "text-danger"}`}>
+                                  {h.unrealised_gain_pct >= 0 ? "▲" : "▼"} {(h.unrealised_gain_pct ?? 0).toFixed(2)}%
+                                </td>
+                                <td className="py-4 text-right">{(h.portfolio_pct ?? 0).toFixed(2)}%</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      <div className="mt-5 bg-dark rounded-2xl p-5 border border-border/70 overflow-x-auto">
+                        <table className="w-full min-w-[700px] text-sm">
+                          <tbody>
+                            <tr className="border-b border-border/50">
+                              <td className="py-2 font-semibold">TOTAL</td>
+                              <td className="py-2 text-right">
+                                {selectedTotals.totalMarket.toLocaleString()}
+                              </td>
+                              <td className="py-2 text-right">
+                                {selectedTotals.totalInvestment.toLocaleString()}
+                              </td>
+                              <td className={`py-2 text-right font-semibold ${selectedTotals.totalGain >= 0 ? "text-success" : "text-danger"}`}>
+                                {selectedTotals.totalGain >= 0 ? "▲" : "▼"} {selectedTotals.totalGain.toLocaleString()}
+                              </td>
+                              <td className="py-2 text-right">
+                                {selectedTotals.totalPortfolio.toFixed(2)}%
+                              </td>
+                            </tr>
+                            <tr>
+                              <td className="py-2 font-semibold">TOTAL SGD</td>
+                              <td className="py-2 text-right">
+                                SGD {selectedTotals.totalMarketSGD.toLocaleString()}
+                              </td>
+                              <td className="py-2 text-right">
+                                SGD {selectedTotals.totalInvestmentSGD.toLocaleString()}
+                              </td>
+                              <td className={`py-2 text-right font-semibold ${selectedTotals.totalGainSGD >= 0 ? "text-success" : "text-danger"}`}>
+                                {selectedTotals.totalGainSGD >= 0 ? "▲" : "▼"} SGD {selectedTotals.totalGainSGD.toLocaleString()}
+                              </td>
+                              <td className="py-2 text-right">
+                                {selectedTotals.totalPortfolio.toFixed(2)}%
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </motion.section>
+        )}
+
+        {activeTab === "analytics" && (
+          <motion.section
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-6"
+          >
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <ChartPanel title="Asset Allocation" icon={<PieIcon className="w-5 h-5 text-primary" />}>
                 <ResponsiveContainer width="100%" height={320}>
                   <PieChart>
@@ -307,190 +583,51 @@ export default function App() {
               </ChartPanel>
             </div>
 
-            <motion.section
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-card border border-border rounded-3xl p-6 lg:p-8 mb-6"
-            >
-              <div className="flex items-center justify-between mb-5">
-                <h2 className="text-2xl font-semibold flex items-center gap-2">
-                  <Layers3 className="w-5 h-5 text-primary" />
-                  Asset Classes
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+              <div className="bg-card rounded-3xl border border-border p-6">
+                <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                  <ShieldAlert className="w-5 h-5 text-primary" />
+                  Diversification
                 </h2>
-                <span className="text-sm text-gray-500">Tap a row to view holdings</span>
+                <div className="text-4xl font-bold mb-2">
+                  {analytics.diversification?.score?.toFixed?.(1) || 0}
+                </div>
+                <p className="text-sm text-gray-400 mb-6">/ 100 score</p>
+                <div className="space-y-3">
+                  <MiniMetric
+                    label="Largest holding"
+                    value={`${analytics.concentration?.largest_holding_pct?.toFixed?.(1) || 0}%`}
+                  />
+                  <MiniMetric
+                    label="Top 5"
+                    value={`${analytics.concentration?.top5_pct?.toFixed?.(1) || 0}%`}
+                  />
+                  <MiniMetric
+                    label="Top 10"
+                    value={`${analytics.concentration?.top10_pct?.toFixed?.(1) || 0}%`}
+                  />
+                </div>
               </div>
 
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[900px]">
-                  <thead>
-                    <tr className="border-b border-border text-sm text-gray-400">
-                      <th className="py-3 text-left font-semibold">Asset Class</th>
-                      <th className="py-3 text-right font-semibold">Invested (SGD)</th>
-                      <th className="py-3 text-right font-semibold">Current (SGD)</th>
-                      <th className="py-3 text-right font-semibold">Profit (SGD)</th>
-                      <th className="py-3 text-right font-semibold">Profit %</th>
-                      <th className="py-3 text-right font-semibold">Portfolio %</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredAssetClasses.map((row, i) => (
-                      <motion.tr
-                        key={i}
-                        onClick={() => {
-                          setSelected(row.asset_class)
-                          setActiveTab("holdings")
-                        }}
-                        className="border-b border-border/60 cursor-pointer hover:bg-hover transition-colors"
-                        whileHover={{ x: 3 }}
-                      >
-                        <td className="py-4 font-semibold">{row.asset_class}</td>
-                        <td className="py-4 text-right">{row.investment_sgd.toLocaleString()}</td>
-                        <td className="py-4 text-right">{row.value_sgd.toLocaleString()}</td>
-                        <td className={`py-4 text-right font-semibold ${row.profit_sgd >= 0 ? 'text-success' : 'text-danger'}`}>
-                          {row.profit_sgd >= 0 ? '▲' : '▼'} {row.profit_sgd.toLocaleString()}
-                        </td>
-                        <td className={`py-4 text-right font-semibold ${row.profit_pct >= 0 ? 'text-success' : 'text-danger'}`}>
-                          {row.profit_pct >= 0 ? '▲' : '▼'} {row.profit_pct}%
-                        </td>
-                        <td className="py-4 text-right">{row.portfolio_pct}%</td>
-                      </motion.tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </motion.section>
-
-            {analytics.risk_signals && analytics.risk_signals.length > 0 && (
-              <motion.section
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="bg-gradient-to-r from-red-900/40 to-pink-900/40 rounded-3xl border border-red-500/25 p-6 lg:p-8"
-              >
-                <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">
-                  <TrendingDown className="w-6 h-6 text-danger" />
+              <div className="xl:col-span-2 bg-card rounded-3xl border border-border p-6">
+                <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                  <TrendingDown className="w-5 h-5 text-danger" />
                   Risk Signals
                 </h2>
-                <ul className="space-y-2">
-                  {analytics.risk_signals.map((risk, i) => (
-                    <li key={i} className="flex items-center gap-2 text-danger">
-                      <ChevronDown className="w-4 h-4" />
-                      {risk}
-                    </li>
-                  ))}
-                </ul>
-              </motion.section>
-            )}
-          </>
-        )}
-
-        {activeTab === "holdings" && (
-          <motion.section
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-card border border-border rounded-3xl p-6 lg:p-8"
-          >
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between mb-5">
-              <div>
-                <h2 className="text-2xl font-semibold">Holdings</h2>
-                <p className="text-sm text-gray-500 mt-1">
-                  Select an asset class from Overview to view its holdings.
-                </p>
-              </div>
-              <div className="flex items-center gap-2 text-sm text-gray-400">
-                <Search className="w-4 h-4" />
-                <span>{selected || "No asset class selected"}</span>
+                {analytics.risk_signals?.length ? (
+                  <ul className="space-y-3">
+                    {analytics.risk_signals.map((risk, i) => (
+                      <li key={i} className="flex items-center gap-2 text-danger">
+                        <ChevronDown className="w-4 h-4" />
+                        {risk}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <div className="text-gray-400">No major risk signals detected.</div>
+                )}
               </div>
             </div>
-
-            {!selected && (
-              <div className="text-gray-400">
-                Choose an asset class in the Overview tab to load its holdings.
-              </div>
-            )}
-
-            {selected && holdingsLoading && (
-              <div className="text-gray-400">Loading holdings...</div>
-            )}
-
-            {selected && !holdingsLoading && (
-              <div className="space-y-6">
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[1050px]">
-                    <thead>
-                      <tr className="border-b border-border text-sm text-gray-400">
-                        <th className="py-3 text-left font-semibold">Name</th>
-                        <th className="py-3 text-right font-semibold">Qty</th>
-                        <th className="py-3 text-right font-semibold">Price</th>
-                        <th className="py-3 text-right font-semibold">Market Value</th>
-                        <th className="py-3 text-right font-semibold">Investment</th>
-                        <th className="py-3 text-right font-semibold">Gain</th>
-                        <th className="py-3 text-right font-semibold">Gain %</th>
-                        <th className="py-3 text-right font-semibold">Portfolio %</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {selectedRows.map((h, i) => (
-                        <motion.tr
-                          key={i}
-                          className="border-b border-border/60 hover:bg-hover transition-colors"
-                          whileHover={{ x: 2 }}
-                        >
-                          <td className="py-4 font-semibold">{h.asset || "-"}</td>
-                          <td className="py-4 text-right">{(h.qty ?? 0).toLocaleString()}</td>
-                          <td className="py-4 text-right">{(h.current_price ?? 0).toLocaleString()}</td>
-                          <td className="py-4 text-right">{(h.market_value ?? 0).toLocaleString()}</td>
-                          <td className="py-4 text-right">{(h.investment_value ?? 0).toLocaleString()}</td>
-                          <td className={`py-4 text-right font-semibold ${h.unrealised_gain >= 0 ? 'text-success' : 'text-danger'}`}>
-                            {h.unrealised_gain >= 0 ? '▲' : '▼'} {(h.unrealised_gain ?? 0).toLocaleString()}
-                          </td>
-                          <td className={`py-4 text-right font-semibold ${h.unrealised_gain_pct >= 0 ? 'text-success' : 'text-danger'}`}>
-                            {h.unrealised_gain_pct >= 0 ? '▲' : '▼'} {(h.unrealised_gain_pct ?? 0).toFixed(2)}%
-                          </td>
-                          <td className="py-4 text-right">{(h.portfolio_pct ?? 0).toFixed(2)}%</td>
-                        </motion.tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-
-                <div className="bg-dark rounded-2xl p-5 border border-border/70 overflow-x-auto">
-                  <table className="w-full min-w-[700px] text-sm">
-                    <tbody>
-                      <tr className="border-b border-border/50">
-                        <td className="py-2 font-semibold">TOTAL</td>
-                        <td className="py-2 text-right">
-                          {selectedRows.reduce((a, b) => a + (b.market_value || 0), 0).toLocaleString()}
-                        </td>
-                        <td className="py-2 text-right">
-                          {selectedRows.reduce((a, b) => a + (b.investment_value || 0), 0).toLocaleString()}
-                        </td>
-                        <td className={`py-2 text-right font-semibold ${selectedRows.reduce((a, b) => a + (b.unrealised_gain || 0), 0) >= 0 ? 'text-success' : 'text-danger'}`}>
-                          {selectedRows.reduce((a, b) => a + (b.unrealised_gain || 0), 0) >= 0 ? '▲' : '▼'} {selectedRows.reduce((a, b) => a + (b.unrealised_gain || 0), 0).toLocaleString()}
-                        </td>
-                        <td className="py-2 text-right">
-                          {selectedRows.reduce((a, b) => a + (b.portfolio_pct || 0), 0).toFixed(2)}%
-                        </td>
-                      </tr>
-                      <tr>
-                        <td className="py-2 font-semibold">TOTAL SGD</td>
-                        <td className="py-2 text-right">
-                          SGD {selectedRows.reduce((a, b) => a + (b.value_sgd || 0), 0).toLocaleString()}
-                        </td>
-                        <td className="py-2 text-right">
-                          SGD {selectedRows.reduce((a, b) => a + (b.investment_sgd || 0), 0).toLocaleString()}
-                        </td>
-                        <td className={`py-2 text-right font-semibold ${selectedRows.reduce((a, b) => a + (b.profit_sgd || 0), 0) >= 0 ? 'text-success' : 'text-danger'}`}>
-                          {selectedRows.reduce((a, b) => a + (b.profit_sgd || 0), 0) >= 0 ? '▲' : '▼'} SGD {selectedRows.reduce((a, b) => a + (b.profit_sgd || 0), 0).toLocaleString()}
-                        </td>
-                        <td className="py-2 text-right">
-                          {selectedRows.reduce((a, b) => a + (b.portfolio_pct || 0), 0).toFixed(2)}%
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
           </motion.section>
         )}
       </div>
@@ -504,8 +641,8 @@ function StatCard({ icon, label, value, positive = true }) {
       <div className="flex items-center justify-between mb-3">
         {icon}
         {value && (
-          <span className={`text-sm font-semibold ${positive ? 'text-success' : 'text-danger'}`}>
-            {positive ? '▲' : '▼'}
+          <span className={`text-sm font-semibold ${positive ? "text-success" : "text-danger"}`}>
+            {positive ? "▲" : "▼"}
           </span>
         )}
       </div>
