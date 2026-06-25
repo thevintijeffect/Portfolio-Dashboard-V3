@@ -348,27 +348,7 @@ export default function App() {
               </div>
             </motion.section>
 
-            {analytics.risk_signals?.length > 0 && (
-              <motion.section
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="bg-gradient-to-r from-red-900/40 to-pink-900/40 rounded-3xl border border-red-500/25 p-6 lg:p-8"
-              >
-                <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">
-                  <TrendingDown className="w-6 h-6 text-danger" />
-                  Risk Signals
-                </h2>
-                <ul className="space-y-2">
-                  {analytics.risk_signals.map((risk, i) => (
-                    <li key={i} className="flex items-center gap-2 text-danger">
-                      <ChevronDown className="w-4 h-4" />
-                      {risk}
-                    </li>
-                  ))}
-                </ul>
-              </motion.section>
-            )}
-          </>
+        </>
         )}
 
         {activeTab === "holdings" && (
