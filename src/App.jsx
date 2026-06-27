@@ -268,8 +268,7 @@ export default function App() {
                   />
                 </div>
               </div>
-
-              </motion.section>
+            </motion.section>
 
             <motion.section
               initial={{ opacity: 0, y: 12 }}
@@ -311,10 +310,10 @@ export default function App() {
                         <td className="py-4 text-right">{Number(row.investment_sgd || 0).toLocaleString()}</td>
                         <td className="py-4 text-right">{Number(row.value_sgd || 0).toLocaleString()}</td>
                         <td className={`py-4 text-right font-semibold ${Number(row.profit_sgd || 0) >= 0 ? "text-success" : "text-danger"}`}>
-                          {Number(row.profit_sgd || 0) >= 0 ? "▲" : "▼"} {Number(row.profit_sgd || 0).toLocaleString()}
+                          {Number(row.profit_sgd || 0).toLocaleString()}
                         </td>
                         <td className={`py-4 text-right font-semibold ${Number(row.profit_pct || 0) >= 0 ? "text-success" : "text-danger"}`}>
-                          {Number(row.profit_pct || 0) >= 0 ? "▲" : "▼"} {Number(row.profit_pct || 0).toFixed(2)}%
+                          {Number(row.profit_pct || 0).toFixed(2)}%
                         </td>
                         <td className="py-4 text-right">{Number(row.portfolio_pct || 0).toFixed(2)}%</td>
                       </motion.tr>
@@ -323,8 +322,7 @@ export default function App() {
                 </table>
               </div>
             </motion.section>
-
-        </>
+          </>
         )}
 
         {activeTab === "holdings" && (
@@ -443,10 +441,10 @@ export default function App() {
                                 <td className="py-4 text-right">{Number(h.market_value || 0).toLocaleString()}</td>
                                 <td className="py-4 text-right">{Number(h.investment_value || 0).toLocaleString()}</td>
                                 <td className={`py-4 text-right font-semibold ${Number(h.unrealised_gain || 0) >= 0 ? "text-success" : "text-danger"}`}>
-                                  {Number(h.unrealised_gain || 0) >= 0 ? "▲" : "▼"} {Number(h.unrealised_gain || 0).toLocaleString()}
+                                  {Number(h.unrealised_gain || 0).toLocaleString()}
                                 </td>
                                 <td className={`py-4 text-right font-semibold ${Number(h.unrealised_gain_pct || 0) >= 0 ? "text-success" : "text-danger"}`}>
-                                  {Number(h.unrealised_gain_pct || 0) >= 0 ? "▲" : "▼"} {Number(h.unrealised_gain_pct || 0).toFixed(2)}%
+                                  {Number(h.unrealised_gain_pct || 0).toFixed(2)}%
                                 </td>
                                 <td className="py-4 text-right">{Number(h.portfolio_pct || 0).toFixed(2)}%</td>
                               </tr>
@@ -467,7 +465,7 @@ export default function App() {
                                 {selectedTotals.totalInvestment.toLocaleString()}
                               </td>
                               <td className={`py-2 text-right font-semibold ${selectedTotals.totalGain >= 0 ? "text-success" : "text-danger"}`}>
-                                {selectedTotals.totalGain >= 0 ? "▲" : "▼"} {selectedTotals.totalGain.toLocaleString()}
+                                {selectedTotals.totalGain.toLocaleString()}
                               </td>
                               <td className="py-2 text-right">
                                 {selectedTotals.totalPortfolio.toFixed(2)}%
@@ -482,7 +480,7 @@ export default function App() {
                                 SGD {selectedTotals.totalInvestmentSGD.toLocaleString()}
                               </td>
                               <td className={`py-2 text-right font-semibold ${selectedTotals.totalGainSGD >= 0 ? "text-success" : "text-danger"}`}>
-                                {selectedTotals.totalGainSGD >= 0 ? "▲" : "▼"} SGD {selectedTotals.totalGainSGD.toLocaleString()}
+                                SGD {selectedTotals.totalGainSGD.toLocaleString()}
                               </td>
                               <td className="py-2 text-right">
                                 {selectedTotals.totalPortfolio.toFixed(2)}%
