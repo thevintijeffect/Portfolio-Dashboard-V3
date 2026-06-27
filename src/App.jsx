@@ -25,12 +25,21 @@ import {
   Wallet,
   LineChart,
   ArrowLeft,
-  BarChart3
+  BarChart3,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  Home
 } from "lucide-react"
 import { motion } from "framer-motion"
 
 const API = "https://portfolio-dashboard-backend-4ull.onrender.com"
 const COLORS = ["#00D4FF", "#00E5A0", "#FFB830", "#8B5CF6", "#FF4D6A"]
+
+const money0 = v => Number(v || 0).toLocaleString("en-US", { maximumFractionDigits: 0 })
+const money2 = v => Number(v || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+const pct2 = v => `${Number(v || 0).toFixed(2)}%`
+const textSortValue = v => String(v ?? "").toLowerCase()
 
 export default function App() {
   const [loading, setLoading] = useState(true)
@@ -43,6 +52,7 @@ export default function App() {
   const [selected, setSelected] = useState(null)
   const [holdings, setHoldings] = useState([])
   const [holdingsLoading, setHoldingsLoading] = useState(false)
+  const [sortConfig, setSortConfig] = useState({ key: "asset", direction: "asc" })
 
   async function loadAll() {
     const resPortfolio = await fetch(`${API}/portfolio`)
@@ -82,18 +92,14 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    if (activeTab === "holdings" && selected) {
-      loadHoldings(selected)
-    }
+    if (activeTab === "holdings" && selected) loadHoldings(selected)
   }, [selected, activeTab])
 
   const handleRefresh = async () => {
     setRefreshing(true)
     try {
       await loadAll()
-      if (activeTab === "holdings" && selected) {
-        await loadHoldings(selected)
-      }
+      if (activeTab === "holdings" && selected) await loadHoldings(selected)
     } catch (err) {
       console.log(err)
     } finally {
@@ -113,16 +119,32 @@ export default function App() {
 
   const assetClasses = portfolio.asset_class_breakdown || []
 
-  const filteredAssetClasses = assetClasses.filter(row =>
-    row.asset_class?.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  const filteredAssetClasses = useMemo(() => {
+    return assetClasses.filter(row =>
+      row.asset_class?.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+  }, [assetClasses, searchTerm])
 
   const currentHoldings = useMemo(() => {
     if (activeTab !== "holdings" || !selected) return []
-    return holdings.filter(h =>
-      (h.asset || "").toLowerCase().includes(searchTerm.toLowerCase())
-    )
+    return holdings.filter(h => (h.asset || "").toLowerCase().includes(searchTerm.toLowerCase()))
   }, [holdings, searchTerm, activeTab, selected])
+
+  const sortedHoldings = useMemo(() => {
+    const arr = [...currentHoldings]
+    const { key, direction } = sortConfig
+    const dir = direction === "asc" ? 1 : -1
+    arr.sort((a, b) => {
+      const av = a?.[key]
+      const bv = b?.[key]
+      const aNum = Number(av)
+      const bNum = Number(bv)
+      const bothNum = Number.isFinite(aNum) && Number.isFinite(bNum) && av !== "" && bv !== ""
+      if (bothNum) return (aNum - bNum) * dir
+      return textSortValue(av).localeCompare(textSortValue(bv)) * dir
+    })
+    return arr
+  }, [currentHoldings, sortConfig])
 
   const selectedTotals = useMemo(() => {
     const totalMarket = currentHoldings.reduce((a, b) => a + Number(b.market_value || 0), 0)
@@ -143,14 +165,34 @@ export default function App() {
     }
   }, [currentHoldings])
 
+  const handleSort = key => {
+    setSortConfig(prev => ({
+      key,
+      direction: prev.key === key && prev.direction === "asc" ? "desc" : "asc"
+    }))
+  }
+
+  const sortIcon = key => {
+    if (sortConfig.key !== key) return <ArrowUpDown className="w-4 h-4 opacity-60" />
+    return sortConfig.direction === "asc" ? <ArrowUp className="w-4 h-4" /> : <ArrowDown className="w-4 h-4" />
+  }
+
+  const renderSortHeader = (label, key, align = "left") => (
+    <th
+      onClick={() => handleSort(key)}
+      className={`py-3 font-semibold cursor-pointer select-none ${align === "right" ? "text-right" : "text-left"}`}
+    >
+      <span className={`inline-flex items-center gap-2 ${align === "right" ? "justify-end" : "justify-start"}`}>
+        {label}
+        {sortIcon(key)}
+      </span>
+    </th>
+  )
+
   if (loading || !portfolio.summary) {
     return (
       <div className="h-screen flex items-center justify-center bg-dark text-white">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.5 }}
-        >
+        <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.5 }}>
           <div className="text-2xl font-semibold">Loading Portfolio...</div>
         </motion.div>
       </div>
@@ -159,12 +201,8 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-dark text-white">
-      <div className="max-w-[1600px] mx-auto p-6 lg:p-8">
-        <motion.header
-          initial={{ opacity: 0, y: -16 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-6"
-        >
+      <div className="max-w-[1600px] mx-auto p-4 sm:p-6 lg:p-8">
+        <motion.header initial={{ opacity: 0, y: -16 }} animate={{ opacity: 1, y: 0 }} className="mb-6">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <div className="flex items-center gap-3">
@@ -179,12 +217,8 @@ export default function App() {
                 <Search className="w-4 h-4 text-gray-400" />
                 <input
                   value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder={
-                    activeTab === "holdings"
-                      ? "Search holdings..."
-                      : "Search asset classes..."
-                  }
+                  onChange={e => setSearchTerm(e.target.value)}
+                  placeholder={activeTab === "holdings" ? "Search holdings..." : "Search asset classes..."}
                   className="bg-transparent outline-none text-white placeholder:text-gray-500 w-full lg:w-72"
                 />
               </div>
@@ -200,9 +234,9 @@ export default function App() {
           </div>
         </motion.header>
 
-        <div className="flex gap-2 mb-6 bg-card border border-border p-1 rounded-2xl w-fit">
+        <div className="flex flex-wrap gap-2 mb-6 bg-card border border-border p-1 rounded-2xl w-fit">
           {[
-            { key: "overview", label: "Overview", icon: Wallet },
+            { key: "overview", label: "Overview", icon: Home },
             { key: "holdings", label: "Holdings", icon: Layers3 },
             { key: "analytics", label: "Analytics", icon: BarChart3 }
           ].map(tab => {
@@ -225,6 +259,28 @@ export default function App() {
           })}
         </div>
 
+        {activeTab === "holdings" && (
+          <div className="mb-4 text-sm text-gray-400 flex items-center gap-2 flex-wrap">
+            <span className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-card border border-border">
+              <Home className="w-4 h-4" />
+              Overview
+            </span>
+            <span>→</span>
+            <span className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-card border border-border">
+              <Layers3 className="w-4 h-4" />
+              Holdings
+            </span>
+            {selected && (
+              <>
+                <span>→</span>
+                <span className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-primary/15 border border-primary text-white">
+                  {selected}
+                </span>
+              </>
+            )}
+          </div>
+        )}
+
         {activeTab === "overview" && (
           <>
             <motion.section
@@ -237,10 +293,10 @@ export default function App() {
                   <div>
                     <p className="text-sm text-gray-400 mb-1">Net Worth</p>
                     <h2 className="text-4xl lg:text-5xl font-bold">
-                      SGD {portfolio.summary.networth_sgd.toLocaleString()}
+                      SGD {money0(portfolio.summary.networth_sgd)}
                     </h2>
                     <p className="text-sm text-gray-500 mt-2">
-                      Total Profit: SGD {portfolio.summary.profit_sgd.toLocaleString()}
+                      Total Profit: SGD {money0(portfolio.summary.profit_sgd)}
                     </p>
                   </div>
                   <div className="hidden md:flex items-center gap-2 bg-dark px-4 py-3 rounded-2xl border border-border">
@@ -253,12 +309,12 @@ export default function App() {
                   <StatCard
                     icon={<DollarSign className="w-5 h-5 text-primary" />}
                     label="Net Worth (SGD)"
-                    value={portfolio.summary.networth_sgd.toLocaleString()}
+                    value={money0(portfolio.summary.networth_sgd)}
                   />
                   <StatCard
                     icon={<TrendingUp className="w-5 h-5 text-success" />}
                     label="Total Profit (SGD)"
-                    value={portfolio.summary.profit_sgd.toLocaleString()}
+                    value={money0(portfolio.summary.profit_sgd)}
                     positive={portfolio.summary.profit_sgd >= 0}
                   />
                   <StatCard
@@ -287,12 +343,12 @@ export default function App() {
                 <table className="w-full min-w-[900px]">
                   <thead>
                     <tr className="border-b border-border text-sm text-gray-400">
-                      <th className="py-3 text-left font-semibold">Asset Class</th>
-                      <th className="py-3 text-right font-semibold">Invested (SGD)</th>
-                      <th className="py-3 text-right font-semibold">Current (SGD)</th>
-                      <th className="py-3 text-right font-semibold">Profit (SGD)</th>
-                      <th className="py-3 text-right font-semibold">Profit %</th>
-                      <th className="py-3 text-right font-semibold">Portfolio %</th>
+                      {renderSortHeader("Asset Class", "asset_class")}
+                      {renderSortHeader("Invested (SGD)", "investment_sgd", "right")}
+                      {renderSortHeader("Current (SGD)", "value_sgd", "right")}
+                      {renderSortHeader("Profit (SGD)", "profit_sgd", "right")}
+                      {renderSortHeader("Profit %", "profit_pct", "right")}
+                      {renderSortHeader("Portfolio %", "portfolio_pct", "right")}
                     </tr>
                   </thead>
                   <tbody>
@@ -307,15 +363,15 @@ export default function App() {
                         whileHover={{ x: 3 }}
                       >
                         <td className="py-4 font-semibold">{row.asset_class}</td>
-                        <td className="py-4 text-right">{Number(row.investment_sgd || 0).toLocaleString()}</td>
-                        <td className="py-4 text-right">{Number(row.value_sgd || 0).toLocaleString()}</td>
+                        <td className="py-4 text-right">{money0(row.investment_sgd)}</td>
+                        <td className="py-4 text-right">{money0(row.value_sgd)}</td>
                         <td className={`py-4 text-right font-semibold ${Number(row.profit_sgd || 0) >= 0 ? "text-success" : "text-danger"}`}>
-                          {Number(row.profit_sgd || 0).toLocaleString()}
+                          {money0(row.profit_sgd)}
                         </td>
                         <td className={`py-4 text-right font-semibold ${Number(row.profit_pct || 0) >= 0 ? "text-success" : "text-danger"}`}>
-                          {Number(row.profit_pct || 0).toFixed(2)}%
+                          {pct2(row.profit_pct)}
                         </td>
-                        <td className="py-4 text-right">{Number(row.portfolio_pct || 0).toFixed(2)}%</td>
+                        <td className="py-4 text-right">{pct2(row.portfolio_pct)}</td>
                       </motion.tr>
                     ))}
                   </tbody>
@@ -329,16 +385,16 @@ export default function App() {
           <motion.section
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-card border border-border rounded-3xl p-6 lg:p-8"
+            className="bg-card border border-border rounded-3xl p-4 sm:p-6 lg:p-8"
           >
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between mb-5">
               <div>
                 <h2 className="text-2xl font-semibold">Holdings Drill-Down</h2>
                 <p className="text-sm text-gray-500 mt-1">
-                  Select an asset class from the Overview tab or use the list below.
+                  Search, sort, and review holdings by asset class.
                 </p>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 {selected && (
                   <button
                     onClick={() => setSelected(null)}
@@ -350,13 +406,13 @@ export default function App() {
                 )}
                 <div className="flex items-center gap-2 text-sm text-gray-400">
                   <Search className="w-4 h-4" />
-                  <span>{selected || "No asset class selected"}</span>
+                  {selected || "No asset class selected"}
                 </div>
               </div>
             </div>
 
             <div className="grid grid-cols-1 xl:grid-cols-[280px_1fr] gap-6">
-              <div className="bg-dark/50 border border-border rounded-2xl p-4">
+              <div className="bg-dark/50 border border-border rounded-2xl p-4 h-fit">
                 <div className="text-sm text-gray-400 mb-3">Asset classes</div>
                 <div className="space-y-2">
                   {assetClasses.map((row, i) => (
@@ -365,6 +421,8 @@ export default function App() {
                       onClick={() => {
                         setSelected(row.asset_class)
                         setHoldings([])
+                        setSearchTerm("")
+                        setSortConfig({ key: "asset", direction: "asc" })
                       }}
                       className={`w-full text-left px-4 py-3 rounded-xl border transition-colors ${
                         selected === row.asset_class
@@ -374,135 +432,146 @@ export default function App() {
                     >
                       <div className="font-semibold">{row.asset_class}</div>
                       <div className="text-xs text-gray-500 mt-1">
-                        SGD {Number(row.value_sgd || 0).toLocaleString()} • {Number(row.portfolio_pct || 0).toFixed(2)}%
+                        SGD {money0(row.value_sgd)} • {pct2(row.portfolio_pct)}
                       </div>
                     </button>
                   ))}
                 </div>
               </div>
 
-              <div>
-                {!selected ? (
-                  <div className="h-full min-h-[300px] flex items-center justify-center text-gray-400 bg-dark/30 border border-border rounded-2xl">
-                    Select an asset class to see holdings.
-                  </div>
-                ) : holdingsLoading ? (
-                  <div className="h-full min-h-[300px] flex items-center justify-center text-gray-400 bg-dark/30 border border-border rounded-2xl">
-                    Loading holdings...
-                  </div>
-                ) : currentHoldings.length === 0 ? (
-                  <div className="h-full min-h-[300px] flex items-center justify-center text-gray-400 bg-dark/30 border border-border rounded-2xl">
-                    No holdings found for {selected}.
-                  </div>
-                ) : (
-                  <div className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-                      <SummaryTile label="Market Value" value={selectedTotals.totalMarket.toLocaleString()} />
-                      <SummaryTile label="Investment" value={selectedTotals.totalInvestment.toLocaleString()} />
-                      <SummaryTile
-                        label="Gain"
-                        value={selectedTotals.totalGain.toLocaleString()}
-                        positive={selectedTotals.totalGain >= 0}
-                      />
-                      <SummaryTile
-                        label="Portfolio %"
-                        value={`${selectedTotals.totalPortfolio.toFixed(2)}%`}
-                      />
-                    </div>
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+                  <SummaryTile label="Market Value" value={money0(selectedTotals.totalMarket)} />
+                  <SummaryTile label="Investment" value={money0(selectedTotals.totalInvestment)} />
+                  <SummaryTile
+                    label="Gain"
+                    value={money0(selectedTotals.totalGain)}
+                    positive={selectedTotals.totalGain >= 0}
+                  />
+                  <SummaryTile
+                    label="Portfolio %"
+                    value={pct2(selectedTotals.totalPortfolio)}
+                  />
+                </div>
 
-                    <div className="bg-dark/40 border border-border rounded-2xl p-4">
-                      <div className="flex items-center justify-between mb-4">
-                        <div>
-                          <h3 className="text-lg font-semibold">{selected} Holdings</h3>
-                          <p className="text-sm text-gray-500">Showing {currentHoldings.length} items</p>
+                <div className="bg-dark/40 border border-border rounded-2xl overflow-hidden">
+                  <div className="max-h-[60vh] overflow-y-auto hidden sm:block">
+                    <table className="w-full min-w-[1100px]">
+                      <thead className="sticky top-0 z-10 bg-dark/95 backdrop-blur border-b border-border">
+                        <tr className="text-sm text-gray-400">
+                          {renderSortHeader("Name", "asset")}
+                          {renderSortHeader("Qty", "qty", "right")}
+                          {renderSortHeader("Price", "current_price", "right")}
+                          {renderSortHeader("Market Value", "market_value", "right")}
+                          {renderSortHeader("Investment", "investment_value", "right")}
+                          {renderSortHeader("Gain", "unrealised_gain", "right")}
+                          {renderSortHeader("Gain %", "unrealised_gain_pct", "right")}
+                          {renderSortHeader("Portfolio %", "portfolio_pct", "right")}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {holdingsLoading ? (
+                          <tr>
+                            <td colSpan={8} className="py-8 text-center text-gray-400">
+                              Loading holdings...
+                            </td>
+                          </tr>
+                        ) : sortedHoldings.length === 0 ? (
+                          <tr>
+                            <td colSpan={8} className="py-8 text-center text-gray-400">
+                              No holdings found for {selected || "this asset class"}.
+                            </td>
+                          </tr>
+                        ) : (
+                          sortedHoldings.map((h, i) => (
+                            <tr key={i} className="border-b border-border/60 hover:bg-hover transition-colors">
+                              <td className="py-4 px-4 font-semibold">{h.asset || "-"}</td>
+                              <td className="py-4 px-4 text-right">{money0(h.qty)}</td>
+                              <td className="py-4 px-4 text-right">{money2(h.current_price)}</td>
+                              <td className="py-4 px-4 text-right">{money0(h.market_value)}</td>
+                              <td className="py-4 px-4 text-right">{money0(h.investment_value)}</td>
+                              <td className={`py-4 px-4 text-right font-semibold ${Number(h.unrealised_gain || 0) >= 0 ? "text-success" : "text-danger"}`}>
+                                {money0(h.unrealised_gain)}
+                              </td>
+                              <td className={`py-4 px-4 text-right font-semibold ${Number(h.unrealised_gain_pct || 0) >= 0 ? "text-success" : "text-danger"}`}>
+                                {pct2(h.unrealised_gain_pct)}
+                              </td>
+                              <td className="py-4 px-4 text-right">{pct2(h.portfolio_pct)}</td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div className="sm:hidden space-y-3 p-4">
+                    {holdingsLoading ? (
+                      <div className="py-8 text-center text-gray-400">Loading holdings...</div>
+                    ) : sortedHoldings.length === 0 ? (
+                      <div className="py-8 text-center text-gray-400">
+                        No holdings found for {selected || "this asset class"}.
+                      </div>
+                    ) : (
+                      sortedHoldings.map((h, i) => (
+                        <div key={i} className="rounded-2xl border border-border bg-dark/50 p-4">
+                          <div className="flex items-start justify-between gap-3 mb-3">
+                            <div>
+                              <div className="font-semibold text-lg">{h.asset || "-"}</div>
+                              <div className="text-xs text-gray-500">{selected}</div>
+                            </div>
+                            <button
+                              onClick={() => setSortConfig({ key: "asset", direction: "asc" })}
+                              className="text-xs text-gray-400 border border-border rounded-lg px-2 py-1"
+                            >
+                              Reset sort
+                            </button>
+                          </div>
+                          <div className="grid grid-cols-2 gap-3 text-sm">
+                            <CardMetric label="Qty" value={money0(h.qty)} />
+                            <CardMetric label="Price" value={money2(h.current_price)} />
+                            <CardMetric label="Market" value={money0(h.market_value)} />
+                            <CardMetric label="Invest" value={money0(h.investment_value)} />
+                            <CardMetric label="Gain" value={money0(h.unrealised_gain)} positive={Number(h.unrealised_gain || 0) >= 0} />
+                            <CardMetric label="Gain %" value={pct2(h.unrealised_gain_pct)} positive={Number(h.unrealised_gain_pct || 0) >= 0} />
+                            <CardMetric label="Port %" value={pct2(h.portfolio_pct)} />
+                          </div>
                         </div>
-                      </div>
-
-                      <div className="overflow-x-auto">
-                        <table className="w-full min-w-[1000px]">
-                          <thead>
-                            <tr className="border-b border-border text-sm text-gray-400">
-                              <th className="py-3 text-left font-semibold">Name</th>
-                              <th className="py-3 text-right font-semibold">Qty</th>
-                              <th className="py-3 text-right font-semibold">Price</th>
-                              <th className="py-3 text-right font-semibold">Market Value</th>
-                              <th className="py-3 text-right font-semibold">Investment</th>
-                              <th className="py-3 text-right font-semibold">Gain</th>
-                              <th className="py-3 text-right font-semibold">Gain %</th>
-                              <th className="py-3 text-right font-semibold">Portfolio %</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {currentHoldings.map((h, i) => (
-                              <tr key={i} className="border-b border-border/60 hover:bg-hover transition-colors">
-                                <td className="py-4 font-semibold">{h.asset || "-"}</td>
-                                <td className="py-4 text-right">{Number(h.qty || 0).toLocaleString()}</td>
-                                <td className="py-4 text-right">{Number(h.current_price || 0).toLocaleString()}</td>
-                                <td className="py-4 text-right">{Number(h.market_value || 0).toLocaleString()}</td>
-                                <td className="py-4 text-right">{Number(h.investment_value || 0).toLocaleString()}</td>
-                                <td className={`py-4 text-right font-semibold ${Number(h.unrealised_gain || 0) >= 0 ? "text-success" : "text-danger"}`}>
-                                  {Number(h.unrealised_gain || 0).toLocaleString()}
-                                </td>
-                                <td className={`py-4 text-right font-semibold ${Number(h.unrealised_gain_pct || 0) >= 0 ? "text-success" : "text-danger"}`}>
-                                  {Number(h.unrealised_gain_pct || 0).toFixed(2)}%
-                                </td>
-                                <td className="py-4 text-right">{Number(h.portfolio_pct || 0).toFixed(2)}%</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-
-                      <div className="mt-5 bg-dark rounded-2xl p-5 border border-border/70 overflow-x-auto">
-                        <table className="w-full min-w-[700px] text-sm">
-                          <tbody>
-                            <tr className="border-b border-border/50">
-                              <td className="py-2 font-semibold">TOTAL</td>
-                              <td className="py-2 text-right">
-                                {selectedTotals.totalMarket.toLocaleString()}
-                              </td>
-                              <td className="py-2 text-right">
-                                {selectedTotals.totalInvestment.toLocaleString()}
-                              </td>
-                              <td className={`py-2 text-right font-semibold ${selectedTotals.totalGain >= 0 ? "text-success" : "text-danger"}`}>
-                                {selectedTotals.totalGain.toLocaleString()}
-                              </td>
-                              <td className="py-2 text-right">
-                                {selectedTotals.totalPortfolio.toFixed(2)}%
-                              </td>
-                            </tr>
-                            <tr>
-                              <td className="py-2 font-semibold">TOTAL SGD</td>
-                              <td className="py-2 text-right">
-                                SGD {selectedTotals.totalMarketSGD.toLocaleString()}
-                              </td>
-                              <td className="py-2 text-right">
-                                SGD {selectedTotals.totalInvestmentSGD.toLocaleString()}
-                              </td>
-                              <td className={`py-2 text-right font-semibold ${selectedTotals.totalGainSGD >= 0 ? "text-success" : "text-danger"}`}>
-                                SGD {selectedTotals.totalGainSGD.toLocaleString()}
-                              </td>
-                              <td className="py-2 text-right">
-                                {selectedTotals.totalPortfolio.toFixed(2)}%
-                              </td>
-                            </tr>
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
+                      ))
+                    )}
                   </div>
-                )}
+                </div>
+
+                <div className="bg-dark rounded-2xl p-5 border border-border/70 overflow-x-auto">
+                  <table className="w-full min-w-[700px] text-sm">
+                    <tbody>
+                      <tr className="border-b border-border/50">
+                        <td className="py-2 font-semibold">TOTAL</td>
+                        <td className="py-2 text-right">{money0(selectedTotals.totalMarket)}</td>
+                        <td className="py-2 text-right">{money0(selectedTotals.totalInvestment)}</td>
+                        <td className={`py-2 text-right font-semibold ${selectedTotals.totalGain >= 0 ? "text-success" : "text-danger"}`}>
+                          {money0(selectedTotals.totalGain)}
+                        </td>
+                        <td className="py-2 text-right">{pct2(selectedTotals.totalPortfolio)}</td>
+                      </tr>
+                      <tr>
+                        <td className="py-2 font-semibold">TOTAL SGD</td>
+                        <td className="py-2 text-right">SGD {money0(selectedTotals.totalMarketSGD)}</td>
+                        <td className="py-2 text-right">SGD {money0(selectedTotals.totalInvestmentSGD)}</td>
+                        <td className={`py-2 text-right font-semibold ${selectedTotals.totalGainSGD >= 0 ? "text-success" : "text-danger"}`}>
+                          SGD {money0(selectedTotals.totalGainSGD)}
+                        </td>
+                        <td className="py-2 text-right">{pct2(selectedTotals.totalPortfolio)}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           </motion.section>
         )}
 
         {activeTab === "analytics" && (
-          <motion.section
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="space-y-6"
-          >
+          <motion.section initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <ChartPanel title="Asset Allocation" icon={<PieIcon className="w-5 h-5 text-primary" />}>
                 <ResponsiveContainer width="100%" height={320}>
@@ -649,6 +718,17 @@ function SummaryTile({ label, value, positive = true }) {
     <div className="bg-dark/60 border border-border rounded-2xl p-4">
       <div className="text-sm text-gray-400 mb-1">{label}</div>
       <div className={`text-xl font-bold ${positive ? "text-white" : "text-danger"}`}>
+        {value}
+      </div>
+    </div>
+  )
+}
+
+function CardMetric({ label, value, positive = true }) {
+  return (
+    <div className="rounded-xl border border-border bg-dark/60 p-3">
+      <div className="text-xs text-gray-500 mb-1">{label}</div>
+      <div className={`font-semibold ${positive ? "text-white" : "text-danger"}`}>
         {value}
       </div>
     </div>
