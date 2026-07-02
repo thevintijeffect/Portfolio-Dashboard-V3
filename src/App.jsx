@@ -32,6 +32,7 @@ import {
   Home
 } from "lucide-react"
 import { motion } from "framer-motion"
+import CashGroupedView from "./components/CashGroupedView"
 
 const API = "https://portfolio-dashboard-backend-4ull.onrender.com"
 const COLORS = ["#00D4FF", "#00E5A0", "#FFB830", "#8B5CF6", "#FF4D6A"]
@@ -53,7 +54,11 @@ export default function App() {
   const [holdingsByClass, setHoldingsByClass] = useState({})
   const [holdingsLoading, setHoldingsLoading] = useState(false)
   const [sortConfig, setSortConfig] = useState({ key: "asset", direction: "asc" })
-  const [prefetched, setPrefetched] = useState(false)
+  const [cashExpanded, setCashExpanded] = useState({
+    "MM Funds": true,
+    "SG Account Balances": true,
+    "Foreign Cash Account": true
+  })
 
   async function fetchPortfolio() {
     const [resPortfolio, resAnalytics] = await Promise.all([
@@ -80,7 +85,7 @@ export default function App() {
     try {
       const res = await fetch(`${API}/holdings/${assetClass}`)
       const data = await res.json()
-      const arr = Array.isArray(data) ? data : []
+      const arr = Array.isArray(data) ? data : data?.groups ? data : []
       setHoldingsByClass(prev => ({ ...prev, [assetClass]: arr }))
       return arr
     } catch (err) {
@@ -102,11 +107,10 @@ export default function App() {
           fetch(`${API}/holdings/${firstClass}`)
             .then(r => r.json())
             .then(data => {
-              const arr = Array.isArray(data) ? data : []
+              const arr = Array.isArray(data) ? data : data?.groups ? data : []
               setHoldingsByClass(prev => ({ ...prev, [firstClass]: arr }))
             })
             .catch(() => {})
-            .finally(() => setPrefetched(true))
         }
       } catch (err) {
         console.log(err)
@@ -159,16 +163,15 @@ export default function App() {
 
   const currentHoldings = useMemo(() => {
     if (activeTab !== "holdings" || !selected) return []
-    return (holdingsByClass[selected] || []).filter(h =>
-      (h.asset || "").toLowerCase().includes(searchTerm.toLowerCase())
-    )
+    const data = holdingsByClass[selected]
+    if (!data) return []
+    return Array.isArray(data) ? data.filter(h => (h.asset || "").toLowerCase().includes(searchTerm.toLowerCase())) : []
   }, [holdingsByClass, searchTerm, activeTab, selected])
 
   const sortedHoldings = useMemo(() => {
     const arr = [...currentHoldings]
     const { key, direction } = sortConfig
     const dir = direction === "asc" ? 1 : -1
-
     arr.sort((a, b) => {
       const av = a?.[key]
       const bv = b?.[key]
@@ -178,29 +181,8 @@ export default function App() {
       if (bothNum) return (aNum - bNum) * dir
       return textSortValue(av).localeCompare(textSortValue(bv)) * dir
     })
-
     return arr
   }, [currentHoldings, sortConfig])
-
-  const selectedTotals = useMemo(() => {
-    const totalMarket = currentHoldings.reduce((a, b) => a + Number(b.market_value || 0), 0)
-    const totalInvestment = currentHoldings.reduce((a, b) => a + Number(b.investment_value || 0), 0)
-    const totalGain = currentHoldings.reduce((a, b) => a + Number(b.unrealised_gain || 0), 0)
-    const totalPortfolio = currentHoldings.reduce((a, b) => a + Number(b.portfolio_pct || 0), 0)
-    const totalMarketSGD = currentHoldings.reduce((a, b) => a + Number(b.value_sgd || 0), 0)
-    const totalInvestmentSGD = currentHoldings.reduce((a, b) => a + Number(b.investment_sgd || 0), 0)
-    const totalGainSGD = currentHoldings.reduce((a, b) => a + Number(b.profit_sgd || 0), 0)
-
-    return {
-      totalMarket,
-      totalInvestment,
-      totalGain,
-      totalPortfolio,
-      totalMarketSGD,
-      totalInvestmentSGD,
-      totalGainSGD
-    }
-  }, [currentHoldings])
 
   const handleSort = key => {
     setSortConfig(prev => ({
@@ -226,8 +208,6 @@ export default function App() {
     </th>
   )
 
-  const holdingsReady = !!selected && !!holdingsByClass[selected]
-
   if (loading || !portfolio.summary) {
     return (
       <div className="min-h-screen bg-dark text-white p-4 sm:p-6 lg:p-8">
@@ -241,11 +221,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-dark text-white">
       <div className="max-w-[1600px] mx-auto p-4 sm:p-6 lg:p-8">
-        <motion.header
-          initial={{ opacity: 0, y: -16 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-6"
-        >
+        <motion.header initial={{ opacity: 0, y: -16 }} animate={{ opacity: 1, y: 0 }} className="mb-6">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <div className="flex items-center gap-3">
@@ -301,28 +277,6 @@ export default function App() {
             )
           })}
         </div>
-
-        {activeTab === "holdings" && (
-          <div className="mb-4 text-sm text-gray-400 flex items-center gap-2 flex-wrap">
-            <span className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-card border border-border">
-              <Home className="w-4 h-4" />
-              Overview
-            </span>
-            <span>→</span>
-            <span className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-card border border-border">
-              <Layers3 className="w-4 h-4" />
-              Holdings
-            </span>
-            {selected && (
-              <>
-                <span>→</span>
-                <span className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-primary/15 border border-primary text-white">
-                  {selected}
-                </span>
-              </>
-            )}
-          </div>
-        )}
 
         {activeTab === "overview" && (
           <>
@@ -429,9 +383,7 @@ export default function App() {
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between mb-5">
               <div>
                 <h2 className="text-2xl font-semibold">Holdings Drill-Down</h2>
-                <p className="text-sm text-gray-500 mt-1">
-                  Search, sort, and review holdings by asset class.
-                </p>
+                <p className="text-sm text-gray-500 mt-1">Search, sort, and review holdings by asset class.</p>
               </div>
               <div className="flex items-center gap-2 flex-wrap">
                 {selected && (
@@ -469,148 +421,101 @@ export default function App() {
                       }`}
                     >
                       <div className="font-semibold">{row.asset_class}</div>
-                      <div className="text-xs text-gray-500 mt-1">
-                        SGD {money0(row.value_sgd)} • {pct2(row.portfolio_pct)}
-                      </div>
+                      <div className="text-xs text-gray-500 mt-1">SGD {money0(row.value_sgd)} • {pct2(row.portfolio_pct)}</div>
                     </button>
                   ))}
                 </div>
               </div>
 
               <div className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-                  <SummaryTile label="Market Value" value={money0(selectedTotals.totalMarket)} />
-                  <SummaryTile label="Investment" value={money0(selectedTotals.totalInvestment)} />
-                  <SummaryTile
-                    label="Gain"
-                    value={money0(selectedTotals.totalGain)}
-                    positive={selectedTotals.totalGain >= 0}
+                {selected === "Cash" ? (
+                  <CashGroupedView
+                    cashGroups={portfolio.cash_groups?.groups || []}
+                    grandTotal={portfolio.cash_groups?.grand_total || {}}
+                    expanded={cashExpanded}
+                    setExpanded={setCashExpanded}
                   />
-                  <SummaryTile label="Portfolio %" value={pct2(selectedTotals.totalPortfolio)} />
-                </div>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+                      <SummaryTile
+                        label="Market Value"
+                        value={money0(currentHoldings.reduce((a, b) => a + Number(b.market_value || 0), 0))}
+                      />
+                      <SummaryTile
+                        label="Investment"
+                        value={money0(currentHoldings.reduce((a, b) => a + Number(b.investment_value || 0), 0))}
+                      />
+                      <SummaryTile
+                        label="Gain"
+                        value={money0(currentHoldings.reduce((a, b) => a + Number(b.unrealised_gain || 0), 0))}
+                        positive={currentHoldings.reduce((a, b) => a + Number(b.unrealised_gain || 0), 0) >= 0}
+                      />
+                      <SummaryTile
+                        label="Portfolio %"
+                        value={pct2(currentHoldings.reduce((a, b) => a + Number(b.portfolio_pct || 0), 0))}
+                      />
+                    </div>
 
-                <div className="bg-dark/40 border border-border rounded-2xl overflow-hidden">
-                  <div className="max-h-[60vh] overflow-y-auto hidden sm:block">
-                    <table className="w-full min-w-[1100px]">
-                      <thead className="sticky top-0 z-10 bg-dark/95 backdrop-blur border-b border-border">
-                        <tr className="text-sm text-gray-400">
-                          {renderSortHeader("Name", "asset")}
-                          {renderSortHeader("Qty", "qty", "right")}
-                          {renderSortHeader("Price", "current_price", "right")}
-                          {renderSortHeader("Market Value", "market_value", "right")}
-                          {renderSortHeader("Investment", "investment_value", "right")}
-                          {renderSortHeader("Gain", "unrealised_gain", "right")}
-                          {renderSortHeader("Gain %", "unrealised_gain_pct", "right")}
-                          {renderSortHeader("Portfolio %", "portfolio_pct", "right")}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {!holdingsReady && holdingsLoading ? (
-                          <tr>
-                            <td colSpan={8} className="py-8 text-center text-gray-400">
-                              Loading holdings...
-                            </td>
-                          </tr>
-                        ) : sortedHoldings.length === 0 ? (
-                          <tr>
-                            <td colSpan={8} className="py-8 text-center text-gray-400">
-                              No holdings found for {selected || "this asset class"}.
-                            </td>
-                          </tr>
-                        ) : (
-                          sortedHoldings.map((h, i) => (
-                            <tr key={i} className="border-b border-border/60 hover:bg-hover transition-colors">
-                              <td className="py-4 px-4 font-semibold">{h.asset || "-"}</td>
-                              <td className="py-4 px-4 text-right">{money0(h.qty)}</td>
-                              <td className="py-4 px-4 text-right">{money2(h.current_price)}</td>
-                              <td className="py-4 px-4 text-right">{money0(h.market_value)}</td>
-                              <td className="py-4 px-4 text-right">{money0(h.investment_value)}</td>
-                              <td className={`py-4 px-4 text-right font-semibold ${Number(h.unrealised_gain || 0) >= 0 ? "text-success" : "text-danger"}`}>
-                                {money0(h.unrealised_gain)}
-                              </td>
-                              <td className={`py-4 px-4 text-right font-semibold ${Number(h.unrealised_gain_pct || 0) >= 0 ? "text-success" : "text-danger"}`}>
-                                {pct2(h.unrealised_gain_pct)}
-                              </td>
-                              <td className="py-4 px-4 text-right">{pct2(h.portfolio_pct)}</td>
+                    <div className="bg-dark/40 border border-border rounded-2xl overflow-hidden">
+                      <div className="max-h-[60vh] overflow-y-auto hidden sm:block">
+                        <table className="w-full min-w-[1100px]">
+                          <thead className="sticky top-0 z-10 bg-dark/95 backdrop-blur border-b border-border">
+                            <tr className="text-sm text-gray-400">
+                              {renderSortHeader("Name", "asset")}
+                              {renderSortHeader("Qty", "qty", "right")}
+                              {renderSortHeader("Price", "current_price", "right")}
+                              {renderSortHeader("Market Value", "market_value", "right")}
+                              {renderSortHeader("Investment", "investment_value", "right")}
+                              {renderSortHeader("Gain", "unrealised_gain", "right")}
+                              {renderSortHeader("Gain %", "unrealised_gain_pct", "right")}
+                              {renderSortHeader("Portfolio %", "portfolio_pct", "right")}
                             </tr>
-                          ))
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  <div className="sm:hidden space-y-3 p-4">
-                    {!holdingsReady && holdingsLoading ? (
-                      <div className="py-8 text-center text-gray-400">Loading holdings...</div>
-                    ) : sortedHoldings.length === 0 ? (
-                      <div className="py-8 text-center text-gray-400">
-                        No holdings found for {selected || "this asset class"}.
+                          </thead>
+                          <tbody>
+                            {holdingsLoading ? (
+                              <tr>
+                                <td colSpan={8} className="py-8 text-center text-gray-400">
+                                  Loading holdings...
+                                </td>
+                              </tr>
+                            ) : sortedHoldings.length === 0 ? (
+                              <tr>
+                                <td colSpan={8} className="py-8 text-center text-gray-400">
+                                  No holdings found for {selected || "this asset class"}.
+                                </td>
+                              </tr>
+                            ) : (
+                              sortedHoldings.map((h, i) => (
+                                <tr key={i} className="border-b border-border/60 hover:bg-hover transition-colors">
+                                  <td className="py-4 px-4 font-semibold">{h.asset || "-"}</td>
+                                  <td className="py-4 px-4 text-right">{money0(h.qty)}</td>
+                                  <td className="py-4 px-4 text-right">{money2(h.current_price)}</td>
+                                  <td className="py-4 px-4 text-right">{money0(h.market_value)}</td>
+                                  <td className="py-4 px-4 text-right">{money0(h.investment_value)}</td>
+                                  <td className={`py-4 px-4 text-right font-semibold ${Number(h.unrealised_gain || 0) >= 0 ? "text-success" : "text-danger"}`}>
+                                    {money0(h.unrealised_gain)}
+                                  </td>
+                                  <td className={`py-4 px-4 text-right font-semibold ${Number(h.unrealised_gain_pct || 0) >= 0 ? "text-success" : "text-danger"}`}>
+                                    {pct2(h.unrealised_gain_pct)}
+                                  </td>
+                                  <td className="py-4 px-4 text-right">{pct2(h.portfolio_pct)}</td>
+                                </tr>
+                              ))
+                            )}
+                          </tbody>
+                        </table>
                       </div>
-                    ) : (
-                      sortedHoldings.map((h, i) => (
-                        <div key={i} className="rounded-2xl border border-border bg-dark/50 p-4">
-                          <div className="flex items-start justify-between gap-3 mb-3">
-                            <div>
-                              <div className="font-semibold text-lg">{h.asset || "-"}</div>
-                              <div className="text-xs text-gray-500">{selected}</div>
-                            </div>
-                            <button
-                              onClick={() => setSortConfig({ key: "asset", direction: "asc" })}
-                              className="text-xs text-gray-400 border border-border rounded-lg px-2 py-1"
-                            >
-                              Reset sort
-                            </button>
-                          </div>
-                          <div className="grid grid-cols-2 gap-3 text-sm">
-                            <CardMetric label="Qty" value={money0(h.qty)} />
-                            <CardMetric label="Price" value={money2(h.current_price)} />
-                            <CardMetric label="Market" value={money0(h.market_value)} />
-                            <CardMetric label="Invest" value={money0(h.investment_value)} />
-                            <CardMetric label="Gain" value={money0(h.unrealised_gain)} positive={Number(h.unrealised_gain || 0) >= 0} />
-                            <CardMetric label="Gain %" value={pct2(h.unrealised_gain_pct)} positive={Number(h.unrealised_gain_pct || 0) >= 0} />
-                            <CardMetric label="Port %" value={pct2(h.portfolio_pct)} />
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-
-                <div className="bg-dark rounded-2xl p-5 border border-border/70 overflow-x-auto">
-                  <table className="w-full min-w-[700px] text-sm">
-                    <tbody>
-                      <tr className="border-b border-border/50">
-                        <td className="py-2 font-semibold">TOTAL</td>
-                        <td className="py-2 text-right">{money0(selectedTotals.totalMarket)}</td>
-                        <td className="py-2 text-right">{money0(selectedTotals.totalInvestment)}</td>
-                        <td className={`py-2 text-right font-semibold ${selectedTotals.totalGain >= 0 ? "text-success" : "text-danger"}`}>
-                          {money0(selectedTotals.totalGain)}
-                        </td>
-                        <td className="py-2 text-right">{pct2(selectedTotals.totalPortfolio)}</td>
-                      </tr>
-                      <tr>
-                        <td className="py-2 font-semibold">TOTAL SGD</td>
-                        <td className="py-2 text-right">SGD {money0(selectedTotals.totalMarketSGD)}</td>
-                        <td className="py-2 text-right">SGD {money0(selectedTotals.totalInvestmentSGD)}</td>
-                        <td className={`py-2 text-right font-semibold ${selectedTotals.totalGainSGD >= 0 ? "text-success" : "text-danger"}`}>
-                          SGD {money0(selectedTotals.totalGainSGD)}
-                        </td>
-                        <td className="py-2 text-right">{pct2(selectedTotals.totalPortfolio)}</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           </motion.section>
         )}
 
         {activeTab === "analytics" && (
-          <motion.section
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="space-y-6"
-          >
+          <motion.section initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <ChartPanel title="Asset Allocation" icon={<PieIcon className="w-5 h-5 text-primary" />}>
                 <ResponsiveContainer width="100%" height={320}>
@@ -663,9 +568,18 @@ export default function App() {
                 </div>
                 <p className="text-sm text-gray-400 mb-6">/ 100 score</p>
                 <div className="space-y-3">
-                  <MiniMetric label="Largest holding" value={`${analytics.concentration?.largest_holding_pct?.toFixed?.(1) || 0}%`} />
-                  <MiniMetric label="Top 5" value={`${analytics.concentration?.top5_pct?.toFixed?.(1) || 0}%`} />
-                  <MiniMetric label="Top 10" value={`${analytics.concentration?.top10_pct?.toFixed?.(1) || 0}%`} />
+                  <MiniMetric
+                    label="Largest holding"
+                    value={`${analytics.concentration?.largest_holding_pct?.toFixed?.(1) || 0}%`}
+                  />
+                  <MiniMetric
+                    label="Top 5"
+                    value={`${analytics.concentration?.top5_pct?.toFixed?.(1) || 0}%`}
+                  />
+                  <MiniMetric
+                    label="Top 10"
+                    value={`${analytics.concentration?.top10_pct?.toFixed?.(1) || 0}%`}
+                  />
                 </div>
               </div>
 
@@ -742,17 +656,6 @@ function SummaryTile({ label, value, positive = true }) {
     <div className="bg-dark/60 border border-border rounded-2xl p-4">
       <div className="text-sm text-gray-400 mb-1">{label}</div>
       <div className={`text-xl font-bold ${positive ? "text-white" : "text-danger"}`}>
-        {value}
-      </div>
-    </div>
-  )
-}
-
-function CardMetric({ label, value, positive = true }) {
-  return (
-    <div className="rounded-xl border border-border bg-dark/60 p-3">
-      <div className="text-xs text-gray-500 mb-1">{label}</div>
-      <div className={`font-semibold ${positive ? "text-white" : "text-danger"}`}>
         {value}
       </div>
     </div>
