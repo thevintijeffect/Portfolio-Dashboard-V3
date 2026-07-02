@@ -50,30 +50,43 @@ export default function App() {
   const [refreshTs, setRefreshTs] = useState(null)
   const [activeTab, setActiveTab] = useState("overview")
   const [selected, setSelected] = useState(null)
-  const [holdings, setHoldings] = useState([])
+  const [holdingsByClass, setHoldingsByClass] = useState({})
   const [holdingsLoading, setHoldingsLoading] = useState(false)
   const [sortConfig, setSortConfig] = useState({ key: "asset", direction: "asc" })
+  const [prefetched, setPrefetched] = useState(false)
 
-  async function loadAll() {
-    const resPortfolio = await fetch(`${API}/portfolio`)
-    const resAnalytics = await fetch(`${API}/analytics`)
-    const dataPortfolio = await resPortfolio.json()
-    const dataAnalytics = await resAnalytics.json()
+  async function fetchPortfolio() {
+    const [resPortfolio, resAnalytics] = await Promise.all([
+      fetch(`${API}/portfolio`),
+      fetch(`${API}/analytics`)
+    ])
+    const [dataPortfolio, dataAnalytics] = await Promise.all([
+      resPortfolio.json(),
+      resAnalytics.json()
+    ])
     setPortfolio(dataPortfolio || {})
     setAnalytics(dataAnalytics || {})
     setRefreshTs(new Date().toLocaleString())
+    return dataPortfolio
   }
 
   async function loadHoldings(assetClass) {
-    if (!assetClass) return
+    if (!assetClass) return []
+
+    const existing = holdingsByClass[assetClass]
+    if (existing?.length) return existing
+
     setHoldingsLoading(true)
     try {
       const res = await fetch(`${API}/holdings/${assetClass}`)
       const data = await res.json()
-      setHoldings(Array.isArray(data) ? data : [])
+      const arr = Array.isArray(data) ? data : []
+      setHoldingsByClass(prev => ({ ...prev, [assetClass]: arr }))
+      return arr
     } catch (err) {
       console.log(err)
-      setHoldings([])
+      setHoldingsByClass(prev => ({ ...prev, [assetClass]: [] }))
+      return []
     } finally {
       setHoldingsLoading(false)
     }
@@ -82,7 +95,19 @@ export default function App() {
   useEffect(() => {
     ;(async () => {
       try {
-        await loadAll()
+        const dataPortfolio = await fetchPortfolio()
+        const firstClass = dataPortfolio?.asset_class_breakdown?.[0]?.asset_class
+        if (firstClass) {
+          setSelected(firstClass)
+          fetch(`${API}/holdings/${firstClass}`)
+            .then(r => r.json())
+            .then(data => {
+              const arr = Array.isArray(data) ? data : []
+              setHoldingsByClass(prev => ({ ...prev, [firstClass]: arr }))
+            })
+            .catch(() => {})
+            .finally(() => setPrefetched(true))
+        }
       } catch (err) {
         console.log(err)
       } finally {
@@ -92,14 +117,22 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    if (activeTab === "holdings" && selected) loadHoldings(selected)
+    if (activeTab === "holdings" && selected && !holdingsByClass[selected] && !holdingsLoading) {
+      loadHoldings(selected)
+    }
   }, [selected, activeTab])
 
   const handleRefresh = async () => {
     setRefreshing(true)
     try {
-      await loadAll()
-      if (activeTab === "holdings" && selected) await loadHoldings(selected)
+      const dataPortfolio = await fetchPortfolio()
+      if (activeTab === "holdings" && selected) {
+        await loadHoldings(selected)
+      } else if (!selected && dataPortfolio?.asset_class_breakdown?.[0]?.asset_class) {
+        const firstClass = dataPortfolio.asset_class_breakdown[0].asset_class
+        setSelected(firstClass)
+        await loadHoldings(firstClass)
+      }
     } catch (err) {
       console.log(err)
     } finally {
@@ -119,21 +152,23 @@ export default function App() {
 
   const assetClasses = portfolio.asset_class_breakdown || []
 
-  const filteredAssetClasses = useMemo(() => {
-    return assetClasses.filter(row =>
-      row.asset_class?.toLowerCase().includes(searchTerm.toLowerCase())
-    )
-  }, [assetClasses, searchTerm])
+  const filteredAssetClasses = useMemo(
+    () => assetClasses.filter(row => row.asset_class?.toLowerCase().includes(searchTerm.toLowerCase())),
+    [assetClasses, searchTerm]
+  )
 
   const currentHoldings = useMemo(() => {
     if (activeTab !== "holdings" || !selected) return []
-    return holdings.filter(h => (h.asset || "").toLowerCase().includes(searchTerm.toLowerCase()))
-  }, [holdings, searchTerm, activeTab, selected])
+    return (holdingsByClass[selected] || []).filter(h =>
+      (h.asset || "").toLowerCase().includes(searchTerm.toLowerCase())
+    )
+  }, [holdingsByClass, searchTerm, activeTab, selected])
 
   const sortedHoldings = useMemo(() => {
     const arr = [...currentHoldings]
     const { key, direction } = sortConfig
     const dir = direction === "asc" ? 1 : -1
+
     arr.sort((a, b) => {
       const av = a?.[key]
       const bv = b?.[key]
@@ -143,6 +178,7 @@ export default function App() {
       if (bothNum) return (aNum - bNum) * dir
       return textSortValue(av).localeCompare(textSortValue(bv)) * dir
     })
+
     return arr
   }, [currentHoldings, sortConfig])
 
@@ -154,6 +190,7 @@ export default function App() {
     const totalMarketSGD = currentHoldings.reduce((a, b) => a + Number(b.value_sgd || 0), 0)
     const totalInvestmentSGD = currentHoldings.reduce((a, b) => a + Number(b.investment_sgd || 0), 0)
     const totalGainSGD = currentHoldings.reduce((a, b) => a + Number(b.profit_sgd || 0), 0)
+
     return {
       totalMarket,
       totalInvestment,
@@ -189,12 +226,14 @@ export default function App() {
     </th>
   )
 
+  const holdingsReady = !!selected && !!holdingsByClass[selected]
+
   if (loading || !portfolio.summary) {
     return (
-      <div className="h-screen flex items-center justify-center bg-dark text-white">
-        <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.5 }}>
-          <div className="text-2xl font-semibold">Loading Portfolio...</div>
-        </motion.div>
+      <div className="min-h-screen bg-dark text-white p-4 sm:p-6 lg:p-8">
+        <SkeletonHeader />
+        <SkeletonCards />
+        <SkeletonTable />
       </div>
     )
   }
@@ -202,7 +241,11 @@ export default function App() {
   return (
     <div className="min-h-screen bg-dark text-white">
       <div className="max-w-[1600px] mx-auto p-4 sm:p-6 lg:p-8">
-        <motion.header initial={{ opacity: 0, y: -16 }} animate={{ opacity: 1, y: 0 }} className="mb-6">
+        <motion.header
+          initial={{ opacity: 0, y: -16 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-6"
+        >
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <div className="flex items-center gap-3">
@@ -292,12 +335,8 @@ export default function App() {
                 <div className="flex items-center justify-between mb-6">
                   <div>
                     <p className="text-sm text-gray-400 mb-1">Net Worth</p>
-                    <h2 className="text-4xl lg:text-5xl font-bold">
-                      SGD {money0(portfolio.summary.networth_sgd)}
-                    </h2>
-                    <p className="text-sm text-gray-500 mt-2">
-                      Total Profit: SGD {money0(portfolio.summary.profit_sgd)}
-                    </p>
+                    <h2 className="text-4xl lg:text-5xl font-bold">SGD {money0(portfolio.summary.networth_sgd)}</h2>
+                    <p className="text-sm text-gray-500 mt-2">Total Profit: SGD {money0(portfolio.summary.profit_sgd)}</p>
                   </div>
                   <div className="hidden md:flex items-center gap-2 bg-dark px-4 py-3 rounded-2xl border border-border">
                     <LineChart className="w-5 h-5 text-primary" />
@@ -420,7 +459,6 @@ export default function App() {
                       key={i}
                       onClick={() => {
                         setSelected(row.asset_class)
-                        setHoldings([])
                         setSearchTerm("")
                         setSortConfig({ key: "asset", direction: "asc" })
                       }}
@@ -448,10 +486,7 @@ export default function App() {
                     value={money0(selectedTotals.totalGain)}
                     positive={selectedTotals.totalGain >= 0}
                   />
-                  <SummaryTile
-                    label="Portfolio %"
-                    value={pct2(selectedTotals.totalPortfolio)}
-                  />
+                  <SummaryTile label="Portfolio %" value={pct2(selectedTotals.totalPortfolio)} />
                 </div>
 
                 <div className="bg-dark/40 border border-border rounded-2xl overflow-hidden">
@@ -470,7 +505,7 @@ export default function App() {
                         </tr>
                       </thead>
                       <tbody>
-                        {holdingsLoading ? (
+                        {!holdingsReady && holdingsLoading ? (
                           <tr>
                             <td colSpan={8} className="py-8 text-center text-gray-400">
                               Loading holdings...
@@ -505,7 +540,7 @@ export default function App() {
                   </div>
 
                   <div className="sm:hidden space-y-3 p-4">
-                    {holdingsLoading ? (
+                    {!holdingsReady && holdingsLoading ? (
                       <div className="py-8 text-center text-gray-400">Loading holdings...</div>
                     ) : sortedHoldings.length === 0 ? (
                       <div className="py-8 text-center text-gray-400">
@@ -571,7 +606,11 @@ export default function App() {
         )}
 
         {activeTab === "analytics" && (
-          <motion.section initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+          <motion.section
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-6"
+          >
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <ChartPanel title="Asset Allocation" icon={<PieIcon className="w-5 h-5 text-primary" />}>
                 <ResponsiveContainer width="100%" height={320}>
@@ -584,13 +623,7 @@ export default function App() {
                         color: "#fff"
                       }}
                     />
-                    <Pie
-                      data={allocation}
-                      dataKey="value"
-                      outerRadius={120}
-                      innerRadius={68}
-                      paddingAngle={2}
-                    >
+                    <Pie data={allocation} dataKey="value" outerRadius={120} innerRadius={68} paddingAngle={2}>
                       {allocation.map((x, i) => (
                         <Cell key={i} fill={COLORS[i % COLORS.length]} />
                       ))}
@@ -630,18 +663,9 @@ export default function App() {
                 </div>
                 <p className="text-sm text-gray-400 mb-6">/ 100 score</p>
                 <div className="space-y-3">
-                  <MiniMetric
-                    label="Largest holding"
-                    value={`${analytics.concentration?.largest_holding_pct?.toFixed?.(1) || 0}%`}
-                  />
-                  <MiniMetric
-                    label="Top 5"
-                    value={`${analytics.concentration?.top5_pct?.toFixed?.(1) || 0}%`}
-                  />
-                  <MiniMetric
-                    label="Top 10"
-                    value={`${analytics.concentration?.top10_pct?.toFixed?.(1) || 0}%`}
-                  />
+                  <MiniMetric label="Largest holding" value={`${analytics.concentration?.largest_holding_pct?.toFixed?.(1) || 0}%`} />
+                  <MiniMetric label="Top 5" value={`${analytics.concentration?.top5_pct?.toFixed?.(1) || 0}%`} />
+                  <MiniMetric label="Top 10" value={`${analytics.concentration?.top10_pct?.toFixed?.(1) || 0}%`} />
                 </div>
               </div>
 
@@ -730,6 +754,38 @@ function CardMetric({ label, value, positive = true }) {
       <div className="text-xs text-gray-500 mb-1">{label}</div>
       <div className={`font-semibold ${positive ? "text-white" : "text-danger"}`}>
         {value}
+      </div>
+    </div>
+  )
+}
+
+function SkeletonHeader() {
+  return (
+    <div className="mb-6">
+      <div className="h-10 w-72 bg-white/10 rounded-xl animate-pulse mb-3" />
+      <div className="h-4 w-40 bg-white/10 rounded animate-pulse" />
+    </div>
+  )
+}
+
+function SkeletonCards() {
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+      <div className="h-40 bg-white/10 rounded-3xl animate-pulse" />
+      <div className="h-40 bg-white/10 rounded-3xl animate-pulse" />
+      <div className="h-40 bg-white/10 rounded-3xl animate-pulse" />
+    </div>
+  )
+}
+
+function SkeletonTable() {
+  return (
+    <div className="bg-white/5 border border-border rounded-3xl p-6">
+      <div className="h-6 w-48 bg-white/10 rounded animate-pulse mb-4" />
+      <div className="space-y-3">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} className="h-10 bg-white/10 rounded animate-pulse" />
+        ))}
       </div>
     </div>
   )
