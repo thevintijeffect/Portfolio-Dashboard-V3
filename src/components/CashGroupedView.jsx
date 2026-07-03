@@ -35,47 +35,47 @@ export default function CashGroupedView({ cashGroups = [], grandTotal = {}, expa
               {isOpen && (
                 <div className="border-t border-border">
                   <div className="overflow-x-auto hidden sm:block">
-                    <table className="w-full min-w-[900px]">
-                      <thead className="bg-dark/80 text-sm text-gray-400">
-                        <tr>
-                          <th className="py-3 px-4 text-left">Name</th>
-                          <th className="py-3 px-4 text-right">Qty</th>
-                          <th className="py-3 px-4 text-right">Market Value</th>
-                          <th className="py-3 px-4 text-right">Investment</th>
-                          <th className="py-3 px-4 text-right">Gain</th>
-                          <th className="py-3 px-4 text-right">Gain %</th>
-                          <th className="py-3 px-4 text-right">SGD</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {group.rows.map((row, i) => (
-                          <tr key={i} className="border-t border-border/60">
-                            <td className="py-3 px-4 font-semibold">{row.asset || "-"}</td>
-                            <td className="py-3 px-4 text-right">{money0(row.qty)}</td>
-                            <td className="py-3 px-4 text-right">{money0(row.market_value)}</td>
-                            <td className="py-3 px-4 text-right">{money0(row.investment_value)}</td>
-                            <td className={`py-3 px-4 text-right font-semibold ${Number(row.profit_sgd || 0) >= 0 ? "text-success" : "text-danger"}`}>
-                              {money0(row.profit_sgd)}
-                            </td>
-                            <td className={`py-3 px-4 text-right font-semibold ${Number(row.profit_pct || 0) >= 0 ? "text-success" : "text-danger"}`}>
-                              {pct2(row.profit_pct)}
-                            </td>
-                            <td className="py-3 px-4 text-right">SGD {money0(row.value_sgd)}</td>
-                          </tr>
-                        ))}
-                        <tr className="border-t border-border bg-dark/70 font-semibold">
-                          <td className="py-3 px-4">Subtotal</td>
-                          <td />
-                          <td className="py-3 px-4 text-right">{money0(group.subtotal.market_value)}</td>
-                          <td className="py-3 px-4 text-right">{money0(group.subtotal.investment_value)}</td>
-                          <td className={`py-3 px-4 text-right ${Number(group.subtotal.profit_sgd || 0) >= 0 ? "text-success" : "text-danger"}`}>
-                            {money0(group.subtotal.profit_sgd)}
-                          </td>
-                          <td />
-                          <td className="py-3 px-4 text-right">SGD {money0(group.subtotal.value_sgd)}</td>
-                        </tr>
-                      </tbody>
-                    </table>
+                    <table className="w-full min-w-[1000px]">
+  <thead>
+    <tr className="border-b border-border text-sm text-gray-400">
+      <th className="py-3 text-left font-semibold">Name</th>
+      <th className="py-3 text-right font-semibold">Market Value (SGD)</th>
+      <th className="py-3 text-right font-semibold">Investment (SGD)</th>
+      <th className="py-3 text-right font-semibold">Gain</th>
+      <th className="py-3 text-right font-semibold">Gain %</th>
+    </tr>
+  </thead>
+
+  <tbody>
+    {group.rows.map((h, i) => (
+      <tr key={i} className="border-b border-border/60">
+        <td className="py-4 font-semibold">{h.asset || "-"}</td>
+        <td className="py-4 text-right">{money0(h.market_value)}</td>
+        <td className="py-4 text-right">{money0(h.investment_value)}</td>
+        <td className={`py-4 text-right font-semibold ${Number(h.unrealised_gain || 0) >= 0 ? "text-success" : "text-danger"}`}>
+          {money0(h.unrealised_gain)}
+        </td>
+        <td className={`py-4 text-right font-semibold ${Number(h.unrealised_gain_pct || 0) >= 0 ? "text-success" : "text-danger"}`}>
+          {pct2(h.unrealised_gain_pct)}
+        </td>
+      </tr>
+    ))}
+
+    <tr className="border-t border-border bg-hover/40 font-semibold">
+      <td className="py-4">Subtotal</td>
+      <td className="py-4 text-right">{money0(group.subtotal?.market_value)}</td>
+      <td className="py-4 text-right">{money0(group.subtotal?.investment_value)}</td>
+      <td className={`py-4 text-right ${Number(group.subtotal?.profit_sgd || 0) >= 0 ? "text-success" : "text-danger"}`}>
+        {money0(group.subtotal?.profit_sgd)}
+      </td>
+      <td className="py-4 text-right">
+        {group.subtotal?.investment_value > 0
+          ? pct2((group.subtotal.profit_sgd / group.subtotal.investment_value) * 100)
+          : "0.00%"}
+      </td>
+    </tr>
+  </tbody>
+</table>
                   </div>
                 </div>
               )}
