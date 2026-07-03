@@ -56,8 +56,8 @@ export default function App() {
   const [sortConfig, setSortConfig] = useState({ key: "asset", direction: "asc" })
   const [cashExpanded, setCashExpanded] = useState({
     "MM Funds": true,
-    "SG Account Balances": true,
-    "Foreign Cash Account": true
+    "SG Account balances": true,
+    "Foreign Cash Accounts": true
   })
 
   async function fetchPortfolio() {
@@ -161,11 +161,32 @@ export default function App() {
     [assetClasses, searchTerm]
   )
 
+  const assetTotals = useMemo(() => {
+    return filteredAssetClasses.reduce(
+      (acc, row) => {
+        acc.investment += Number(row.investment_sgd || 0)
+        acc.value += Number(row.value_sgd || 0)
+        acc.profit += Number(row.profit_sgd || 0)
+        return acc
+      },
+      { investment: 0, value: 0, profit: 0 }
+    )
+  }, [filteredAssetClasses])
+
+  const totalProfitPct = assetTotals.investment > 0 ? (assetTotals.profit / assetTotals.investment) * 100 : 0
+
+  const totalPortfolioPct =
+    portfolio.summary?.networth_sgd > 0
+      ? (assetTotals.value / portfolio.summary.networth_sgd) * 100
+      : 0
+
   const currentHoldings = useMemo(() => {
     if (activeTab !== "holdings" || !selected) return []
     const data = holdingsByClass[selected]
     if (!data) return []
-    return Array.isArray(data) ? data.filter(h => (h.asset || "").toLowerCase().includes(searchTerm.toLowerCase())) : []
+    return Array.isArray(data)
+      ? data.filter(h => (h.asset || "").toLowerCase().includes(searchTerm.toLowerCase()))
+      : []
   }, [holdingsByClass, searchTerm, activeTab, selected])
 
   const sortedHoldings = useMemo(() => {
@@ -199,7 +220,9 @@ export default function App() {
   const renderSortHeader = (label, key, align = "left") => (
     <th
       onClick={() => handleSort(key)}
-      className={`py-3 font-semibold cursor-pointer select-none ${align === "right" ? "text-right" : "text-left"}`}
+      className={`py-3 font-semibold cursor-pointer select-none ${
+        align === "right" ? "text-right" : "text-left"
+      }`}
     >
       <span className={`inline-flex items-center gap-2 ${align === "right" ? "justify-end" : "justify-start"}`}>
         {label}
@@ -367,6 +390,19 @@ export default function App() {
                         <td className="py-4 text-right">{pct2(row.portfolio_pct)}</td>
                       </motion.tr>
                     ))}
+
+                    <tr className="border-t border-border bg-dark/60 font-semibold">
+                      <td className="py-4">Total</td>
+                      <td className="py-4 text-right">{money0(assetTotals.investment)}</td>
+                      <td className="py-4 text-right">{money0(assetTotals.value)}</td>
+                      <td className={`py-4 text-right ${assetTotals.profit >= 0 ? "text-success" : "text-danger"}`}>
+                        {money0(assetTotals.profit)}
+                      </td>
+                      <td className={`py-4 text-right ${totalProfitPct >= 0 ? "text-success" : "text-danger"}`}>
+                        {pct2(totalProfitPct)}
+                      </td>
+                      <td className="py-4 text-right">{pct2(totalPortfolioPct)}</td>
+                    </tr>
                   </tbody>
                 </table>
               </div>
@@ -421,7 +457,9 @@ export default function App() {
                       }`}
                     >
                       <div className="font-semibold">{row.asset_class}</div>
-                      <div className="text-xs text-gray-500 mt-1">SGD {money0(row.value_sgd)} • {pct2(row.portfolio_pct)}</div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        SGD {money0(row.value_sgd)} • {pct2(row.portfolio_pct)}
+                      </div>
                     </button>
                   ))}
                 </div>
@@ -655,9 +693,7 @@ function SummaryTile({ label, value, positive = true }) {
   return (
     <div className="bg-dark/60 border border-border rounded-2xl p-4">
       <div className="text-sm text-gray-400 mb-1">{label}</div>
-      <div className={`text-xl font-bold ${positive ? "text-white" : "text-danger"}`}>
-        {value}
-      </div>
+      <div className={`text-xl font-bold ${positive ? "text-white" : "text-danger"}`}>{value}</div>
     </div>
   )
 }
