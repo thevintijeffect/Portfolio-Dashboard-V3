@@ -3,7 +3,12 @@ import { ChevronDown, ChevronUp } from "lucide-react"
 const money0 = v => Number(v || 0).toLocaleString("en-US", { maximumFractionDigits: 0 })
 const pct2 = v => `${Number(v || 0).toFixed(2)}%`
 
-export default function CashGroupedView({ cashGroups = [], grandTotal = {}, expanded = {}, setExpanded }) {
+export default function CashGroupedView({
+  cashGroups = [],
+  grandTotal = {},
+  expanded = {},
+  setExpanded
+}) {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -30,7 +35,7 @@ export default function CashGroupedView({ cashGroups = [], grandTotal = {}, expa
                 <div>
                   <div className="font-semibold text-lg">{group.group_name}</div>
                   <div className="text-xs text-gray-500 mt-1">
-                    Subtotal: SGD {money0(group.subtotal.value_sgd)} • Gain: SGD {money0(group.subtotal.profit_sgd)}
+                    Subtotal: SGD {money0(group.subtotal?.value_sgd)} • Gain: SGD {money0(group.subtotal?.profit_sgd)}
                   </div>
                 </div>
                 {isOpen ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
@@ -38,31 +43,31 @@ export default function CashGroupedView({ cashGroups = [], grandTotal = {}, expa
 
               {isOpen && (
                 <div className="border-t border-border">
-                  <div className="overflow-x-auto hidden sm:block">
-                    <table className="w-full min-w-[1000px] table-fixed">
+                  <div className="overflow-x-auto hidden lg:block">
+                    <table className="w-full table-fixed">
                       <thead>
                         <tr className="border-b border-border text-sm text-gray-400">
-                          <th className="py-3 pl-2 pr-2 text-left font-semibold w-[24%]">
+                          <th className="py-3 pl-2 pr-2 text-left font-semibold w-[26%]">
                             Name
                           </th>
-                          <th className="py-3 px-2 text-right font-semibold w-[24%]">
+                          <th className="py-3 px-2 text-right font-semibold w-[22%]">
                             Market Value (SGD)
                           </th>
-                          <th className="py-3 px-2 text-right font-semibold w-[24%]">
+                          <th className="py-3 px-2 text-right font-semibold w-[22%]">
                             Investment (SGD)
                           </th>
-                          <th className="py-3 px-2 text-right font-semibold w-[14%]">
+                          <th className="py-3 px-2 text-right font-semibold w-[15%]">
                             Gain
                           </th>
-                          <th className="py-3 px-2 text-right font-semibold w-[14%]">
+                          <th className="py-3 px-2 text-right font-semibold w-[15%]">
                             Gain %
                           </th>
                         </tr>
                       </thead>
 
                       <tbody>
-                        {group.rows.map((h, i) => (
-                          <tr key={i} className="border-b border-border/60">
+                        {group.rows?.map((h, i) => (
+                          <tr key={i} className="border-b border-border/60 hover:bg-hover/40 transition-colors">
                             <td className="py-4 pl-2 pr-2 font-semibold truncate">
                               {h.asset || "-"}
                             </td>
