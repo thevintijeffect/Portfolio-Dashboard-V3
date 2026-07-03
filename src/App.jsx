@@ -355,57 +355,57 @@ export default function App() {
                 <span className="text-sm text-gray-500">Tap a row to view holdings</span>
               </div>
 
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[900px]">
-                  <thead>
-                    <tr className="border-b border-border text-sm text-gray-400">
-                      {renderSortHeader("Asset Class", "asset_class")}
-                      {renderSortHeader("Invested (SGD)", "investment_sgd", "right")}
-                      {renderSortHeader("Current (SGD)", "value_sgd", "right")}
-                      {renderSortHeader("Profit (SGD)", "profit_sgd", "right")}
-                      {renderSortHeader("Profit %", "profit_pct", "right")}
-                      {renderSortHeader("Portfolio %", "portfolio_pct", "right")}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredAssetClasses.map((row, i) => (
-                      <motion.tr
-                        key={i}
-                        onClick={() => {
-                          setSelected(row.asset_class)
-                          setActiveTab("holdings")
-                        }}
-                        className="border-b border-border/60 cursor-pointer hover:bg-hover transition-colors"
-                        whileHover={{ x: 3 }}
-                      >
-                        <td className="py-4 font-semibold">{row.asset_class}</td>
-                        <td className="py-4 text-right">{money0(row.investment_sgd)}</td>
-                        <td className="py-4 text-right">{money0(row.value_sgd)}</td>
-                        <td className={`py-4 text-right font-semibold ${Number(row.profit_sgd || 0) >= 0 ? "text-success" : "text-danger"}`}>
-                          {money0(row.profit_sgd)}
-                        </td>
-                        <td className={`py-4 text-right font-semibold ${Number(row.profit_pct || 0) >= 0 ? "text-success" : "text-danger"}`}>
-                          {pct2(row.profit_pct)}
-                        </td>
-                        <td className="py-4 text-right">{pct2(row.portfolio_pct)}</td>
-                      </motion.tr>
-                    ))}
+             <div className="overflow-x-auto">
+  <table className="w-full min-w-[900px]">
+    <thead>
+      <tr className="border-b border-border text-sm text-gray-400">
+        {renderSortHeader("Asset Class", "asset_class")}
+        {renderSortHeader("Current (SGD)", "value_sgd", "right")}
+        {renderSortHeader("Invested (SGD)", "investment_sgd", "right")}
+        {renderSortHeader("Profit (SGD)", "profit_sgd", "right")}
+        {renderSortHeader("Profit %", "profit_pct", "right")}
+        {renderSortHeader("Portfolio %", "portfolio_pct", "right")}
+      </tr>
+    </thead>
+    <tbody>
+      {filteredAssetClasses.map((row, i) => (
+        <motion.tr
+          key={i}
+          onClick={() => {
+            setSelected(row.asset_class)
+            setActiveTab("holdings")
+          }}
+          className="border-b border-border/60 cursor-pointer hover:bg-hover transition-colors"
+          whileHover={{ x: 3 }}
+        >
+          <td className="py-4 font-semibold">{row.asset_class}</td>
+          <td className="py-4 text-right">{money0(row.value_sgd)}</td>
+          <td className="py-4 text-right">{money0(row.investment_sgd)}</td>
+          <td className={`py-4 text-right font-semibold ${Number(row.profit_sgd || 0) >= 0 ? "text-success" : "text-danger"}`}>
+            {money0(row.profit_sgd)}
+          </td>
+          <td className={`py-4 text-right font-semibold ${Number(row.profit_pct || 0) >= 0 ? "text-success" : "text-danger"}`}>
+            {pct2(row.profit_pct)}
+          </td>
+          <td className="py-4 text-right">{pct2(row.portfolio_pct)}</td>
+        </motion.tr>
+      ))}
 
-                    <tr className="border-t border-border bg-dark/60 font-semibold">
-                      <td className="py-4">Total</td>
-                      <td className="py-4 text-right">{money0(assetTotals.investment)}</td>
-                      <td className="py-4 text-right">{money0(assetTotals.value)}</td>
-                      <td className={`py-4 text-right ${assetTotals.profit >= 0 ? "text-success" : "text-danger"}`}>
-                        {money0(assetTotals.profit)}
-                      </td>
-                      <td className={`py-4 text-right ${totalProfitPct >= 0 ? "text-success" : "text-danger"}`}>
-                        {pct2(totalProfitPct)}
-                      </td>
-                      <td className="py-4 text-right">{pct2(totalPortfolioPct)}</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
+      <tr className="border-t border-border bg-dark/60 font-semibold">
+        <td className="py-4">Total</td>
+        <td className="py-4 text-right">{money0(assetTotals.value)}</td>
+        <td className="py-4 text-right">{money0(assetTotals.investment)}</td>
+        <td className={`py-4 text-right ${assetTotals.profit >= 0 ? "text-success" : "text-danger"}`}>
+          {money0(assetTotals.profit)}
+        </td>
+        <td className={`py-4 text-right ${totalProfitPct >= 0 ? "text-success" : "text-danger"}`}>
+          {pct2(totalProfitPct)}
+        </td>
+        <td className="py-4 text-right">{pct2(totalPortfolioPct)}</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
             </motion.section>
           </>
         )}
