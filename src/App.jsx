@@ -608,14 +608,16 @@ export default function App() {
 }
 
 function MfsGroupedView({ holdings = [], loading = false, money0, money2, pct2 }) {
-  const getSource = h => String(h.group_name || h.sheet_name || h.source_sheet || h.sheet || h.category || "").trim()
+  const isDirectFund = h => String(h.asset || "").toLowerCase().includes("direct")
 
-  const regularRows = holdings.filter(h => getSource(h).includes("MF-SK"))
-  const directRows = holdings.filter(h => getSource(h).includes("Mutual Funds - Direct"))
+  const regularRows = holdings.filter(h => !isDirectFund(h))
+  const directRows = holdings.filter(h => isDirectFund(h))
 
   const calcTotals = rows =>
     rows.reduce(
       (acc, h) => {
+        acc.qty += Number(h.qty || 0)
+        acc.current_price += Number(h.current_price || 0)
         acc.market_value += Number(h.market_value || 0)
         acc.investment_value += Number(h.investment_value || 0)
         acc.unrealised_gain += Number(h.unrealised_gain || 0)
@@ -623,7 +625,15 @@ function MfsGroupedView({ holdings = [], loading = false, money0, money2, pct2 }
         acc.portfolio_pct += Number(h.portfolio_pct || 0)
         return acc
       },
-      { market_value: 0, investment_value: 0, unrealised_gain: 0, unrealised_gain_pct: 0, portfolio_pct: 0 }
+      {
+        qty: 0,
+        current_price: 0,
+        market_value: 0,
+        investment_value: 0,
+        unrealised_gain: 0,
+        unrealised_gain_pct: 0,
+        portfolio_pct: 0
+      }
     )
 
   const regularTotals = calcTotals(regularRows)
@@ -642,12 +652,13 @@ function MfsGroupedView({ holdings = [], loading = false, money0, money2, pct2 }
           <thead className="sticky top-0 z-10 bg-dark/95 backdrop-blur border-b border-border">
             <tr className="text-sm text-gray-400">
               <th className="py-3 px-3 text-left font-semibold w-[34%]">Name</th>
-              <th className="py-3 px-3 text-right font-semibold w-[18%]">Qty</th>
+              <th className="py-3 px-3 text-right font-semibold w-[16%]">Qty</th>
               <th className="py-3 px-3 text-right font-semibold w-[16%]">Price</th>
-              <th className="py-3 px-3 text-right font-semibold w-[18%]">Market Value</th>
-              <th className="py-3 px-3 text-right font-semibold w-[18%]">Investment</th>
+              <th className="py-3 px-3 text-right font-semibold w-[17%]">Market Value</th>
+              <th className="py-3 px-3 text-right font-semibold w-[17%]">Investment</th>
             </tr>
           </thead>
+
           <tbody>
             {rows.length === 0 ? (
               <tr>
@@ -669,7 +680,7 @@ function MfsGroupedView({ holdings = [], loading = false, money0, money2, pct2 }
 
             <tr className="border-t border-border bg-dark/70 font-semibold">
               <td className="py-4 px-3">Subtotal</td>
-              <td className="py-4 px-3 text-right">{money0(rows.reduce((a, b) => a + Number(b.qty || 0), 0))}</td>
+              <td className="py-4 px-3 text-right">{money0(totals.qty)}</td>
               <td className="py-4 px-3 text-right">-</td>
               <td className="py-4 px-3 text-right">{money0(totals.market_value)}</td>
               <td className="py-4 px-3 text-right">{money0(totals.investment_value)}</td>
@@ -685,11 +696,17 @@ function MfsGroupedView({ holdings = [], loading = false, money0, money2, pct2 }
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <SummaryTile label="Market Value" value={money0(grandTotals.market_value)} />
         <SummaryTile label="Investment" value={money0(grandTotals.investment_value)} />
-        <SummaryTile label="Gain" value={money0(grandTotals.unrealised_gain)} positive={grandTotals.unrealised_gain >= 0} />
+        <SummaryTile
+          label="Gain"
+          value={money0(grandTotals.unrealised_gain)}
+          positive={grandTotals.unrealised_gain >= 0}
+        />
       </div>
 
       {loading ? (
-        <div className="bg-dark/40 border border-border rounded-2xl p-8 text-gray-400">Loading mutual fund holdings...</div>
+        <div className="bg-dark/40 border border-border rounded-2xl p-8 text-gray-400">
+          Loading mutual fund holdings...
+        </div>
       ) : (
         <>
           <GroupTable title="Regular" rows={regularRows} totals={regularTotals} />
