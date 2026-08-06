@@ -242,7 +242,7 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-dark text-white">
+    <div className="min-h-screen bg-dark text-white overflow-x-hidden">
       <div className="max-w-[1600px] mx-auto p-4 sm:p-6 lg:p-8">
         <motion.header initial={{ opacity: 0, y: -16 }} animate={{ opacity: 1, y: 0 }} className="mb-6">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -355,57 +355,57 @@ export default function App() {
                 <span className="text-sm text-gray-500">Tap a row to view holdings</span>
               </div>
 
-             <div className="overflow-x-auto">
-  <table className="w-full min-w-[900px]">
-    <thead>
-      <tr className="border-b border-border text-sm text-gray-400">
-        {renderSortHeader("Asset Class", "asset_class")}
-        {renderSortHeader("Current (SGD)", "value_sgd", "right")}
-        {renderSortHeader("Invested (SGD)", "investment_sgd", "right")}
-        {renderSortHeader("Profit (SGD)", "profit_sgd", "right")}
-        {renderSortHeader("Profit %", "profit_pct", "right")}
-        {renderSortHeader("Portfolio %", "portfolio_pct", "right")}
-      </tr>
-    </thead>
-    <tbody>
-      {filteredAssetClasses.map((row, i) => (
-        <motion.tr
-          key={i}
-          onClick={() => {
-            setSelected(row.asset_class)
-            setActiveTab("holdings")
-          }}
-          className="border-b border-border/60 cursor-pointer hover:bg-hover transition-colors"
-          whileHover={{ x: 3 }}
-        >
-          <td className="py-4 font-semibold">{row.asset_class}</td>
-          <td className="py-4 text-right">{money0(row.value_sgd)}</td>
-          <td className="py-4 text-right">{money0(row.investment_sgd)}</td>
-          <td className={`py-4 text-right font-semibold ${Number(row.profit_sgd || 0) >= 0 ? "text-success" : "text-danger"}`}>
-            {money0(row.profit_sgd)}
-          </td>
-          <td className={`py-4 text-right font-semibold ${Number(row.profit_pct || 0) >= 0 ? "text-success" : "text-danger"}`}>
-            {pct2(row.profit_pct)}
-          </td>
-          <td className="py-4 text-right">{pct2(row.portfolio_pct)}</td>
-        </motion.tr>
-      ))}
+              <div className="overflow-x-auto max-w-full">
+                <table className="w-full min-w-[900px] table-fixed">
+                  <thead>
+                    <tr className="border-b border-border text-sm text-gray-400">
+                      {renderSortHeader("Asset Class", "asset_class")}
+                      {renderSortHeader("Current (SGD)", "value_sgd", "right")}
+                      {renderSortHeader("Invested (SGD)", "investment_sgd", "right")}
+                      {renderSortHeader("Profit (SGD)", "profit_sgd", "right")}
+                      {renderSortHeader("Profit %", "profit_pct", "right")}
+                      {renderSortHeader("Portfolio %", "portfolio_pct", "right")}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredAssetClasses.map((row, i) => (
+                      <motion.tr
+                        key={i}
+                        onClick={() => {
+                          setSelected(row.asset_class)
+                          setActiveTab("holdings")
+                        }}
+                        className="border-b border-border/60 cursor-pointer hover:bg-hover transition-colors"
+                        whileHover={{ x: 3 }}
+                      >
+                        <td className="py-4 px-2 font-semibold truncate">{row.asset_class}</td>
+                        <td className="py-4 px-2 text-right">{money0(row.value_sgd)}</td>
+                        <td className="py-4 px-2 text-right">{money0(row.investment_sgd)}</td>
+                        <td className={`py-4 px-2 text-right font-semibold ${Number(row.profit_sgd || 0) >= 0 ? "text-success" : "text-danger"}`}>
+                          {money0(row.profit_sgd)}
+                        </td>
+                        <td className={`py-4 px-2 text-right font-semibold ${Number(row.profit_pct || 0) >= 0 ? "text-success" : "text-danger"}`}>
+                          {pct2(row.profit_pct)}
+                        </td>
+                        <td className="py-4 px-2 text-right">{pct2(row.portfolio_pct)}</td>
+                      </motion.tr>
+                    ))}
 
-      <tr className="border-t border-border bg-dark/60 font-semibold">
-        <td className="py-4">Total</td>
-        <td className="py-4 text-right">{money0(assetTotals.value)}</td>
-        <td className="py-4 text-right">{money0(assetTotals.investment)}</td>
-        <td className={`py-4 text-right ${assetTotals.profit >= 0 ? "text-success" : "text-danger"}`}>
-          {money0(assetTotals.profit)}
-        </td>
-        <td className={`py-4 text-right ${totalProfitPct >= 0 ? "text-success" : "text-danger"}`}>
-          {pct2(totalProfitPct)}
-        </td>
-        <td className="py-4 text-right">{pct2(totalPortfolioPct)}</td>
-      </tr>
-    </tbody>
-  </table>
-</div>
+                    <tr className="border-t border-border bg-dark/60 font-semibold">
+                      <td className="py-4 px-2">Total</td>
+                      <td className="py-4 px-2 text-right">{money0(assetTotals.value)}</td>
+                      <td className="py-4 px-2 text-right">{money0(assetTotals.investment)}</td>
+                      <td className={`py-4 px-2 text-right ${assetTotals.profit >= 0 ? "text-success" : "text-danger"}`}>
+                        {money0(assetTotals.profit)}
+                      </td>
+                      <td className={`py-4 px-2 text-right ${totalProfitPct >= 0 ? "text-success" : "text-danger"}`}>
+                        {pct2(totalProfitPct)}
+                      </td>
+                      <td className="py-4 px-2 text-right">{pct2(totalPortfolioPct)}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
             </motion.section>
           </>
         )}
@@ -414,7 +414,7 @@ export default function App() {
           <motion.section
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-card border border-border rounded-3xl p-4 sm:p-6 lg:p-8"
+            className="bg-card border border-border rounded-3xl p-4 sm:p-6 lg:p-8 min-w-0"
           >
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between mb-5">
               <div>
@@ -438,8 +438,8 @@ export default function App() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 xl:grid-cols-[280px_1fr] gap-6">
-              <div className="bg-dark/50 border border-border rounded-2xl p-4 h-fit">
+            <div className="grid grid-cols-1 xl:grid-cols-[280px_minmax(0,1fr)] gap-6 min-w-0">
+              <div className="bg-dark/50 border border-border rounded-2xl p-4 h-fit min-w-0">
                 <div className="text-sm text-gray-400 mb-3">Asset classes</div>
                 <div className="space-y-2">
                   {assetClasses.map((row, i) => (
@@ -465,7 +465,7 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="space-y-6">
+              <div className="space-y-6 min-w-0">
                 {selected === "Cash" ? (
                   <CashGroupedView
                     cashGroups={portfolio.cash_groups?.groups || []}
@@ -495,9 +495,9 @@ export default function App() {
                       />
                     </div>
 
-                    <div className="bg-dark/40 border border-border rounded-2xl overflow-hidden">
-                      <div className="max-h-[60vh] overflow-y-auto hidden sm:block">
-                        <table className="w-full min-w-[1100px]">
+                    <div className="bg-dark/40 border border-border rounded-2xl overflow-hidden min-w-0">
+                      <div className="overflow-x-auto max-w-full">
+                        <table className="w-full min-w-[1100px] table-fixed">
                           <thead className="sticky top-0 z-10 bg-dark/95 backdrop-blur border-b border-border">
                             <tr className="text-sm text-gray-400">
                               {renderSortHeader("Name", "asset")}
@@ -526,18 +526,18 @@ export default function App() {
                             ) : (
                               sortedHoldings.map((h, i) => (
                                 <tr key={i} className="border-b border-border/60 hover:bg-hover transition-colors">
-                                  <td className="py-4 px-4 font-semibold">{h.asset || "-"}</td>
-                                  <td className="py-4 px-4 text-right">{money0(h.qty)}</td>
-                                  <td className="py-4 px-4 text-right">{money2(h.current_price)}</td>
-                                  <td className="py-4 px-4 text-right">{money0(h.market_value)}</td>
-                                  <td className="py-4 px-4 text-right">{money0(h.investment_value)}</td>
-                                  <td className={`py-4 px-4 text-right font-semibold ${Number(h.unrealised_gain || 0) >= 0 ? "text-success" : "text-danger"}`}>
+                                  <td className="py-4 px-3 font-semibold truncate">{h.asset || "-"}</td>
+                                  <td className="py-4 px-3 text-right">{money0(h.qty)}</td>
+                                  <td className="py-4 px-3 text-right">{money2(h.current_price)}</td>
+                                  <td className="py-4 px-3 text-right">{money0(h.market_value)}</td>
+                                  <td className="py-4 px-3 text-right">{money0(h.investment_value)}</td>
+                                  <td className={`py-4 px-3 text-right font-semibold ${Number(h.unrealised_gain || 0) >= 0 ? "text-success" : "text-danger"}`}>
                                     {money0(h.unrealised_gain)}
                                   </td>
-                                  <td className={`py-4 px-4 text-right font-semibold ${Number(h.unrealised_gain_pct || 0) >= 0 ? "text-success" : "text-danger"}`}>
+                                  <td className={`py-4 px-3 text-right font-semibold ${Number(h.unrealised_gain_pct || 0) >= 0 ? "text-success" : "text-danger"}`}>
                                     {pct2(h.unrealised_gain_pct)}
                                   </td>
-                                  <td className="py-4 px-4 text-right">{pct2(h.portfolio_pct)}</td>
+                                  <td className="py-4 px-3 text-right">{pct2(h.portfolio_pct)}</td>
                                 </tr>
                               ))
                             )}
