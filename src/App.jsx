@@ -231,6 +231,33 @@ export default function App() {
     </th>
   )
 
+  const mfRegular = useMemo(() => {
+    if (selected !== "Mutual Fund") return []
+    return currentHoldings.filter(h => (h.source_sheet || h.sheet || "").includes("MF-SK"))
+  }, [currentHoldings, selected])
+
+  const mfDirect = useMemo(() => {
+    if (selected !== "Mutual Fund") return []
+    return currentHoldings.filter(h => (h.source_sheet || h.sheet || "").includes("Mutual Funds - Direct"))
+  }, [currentHoldings, selected])
+
+  const calcHoldingTotals = rows =>
+    rows.reduce(
+      (acc, h) => {
+        acc.market_value += Number(h.market_value || 0)
+        acc.investment_value += Number(h.investment_value || 0)
+        acc.unrealised_gain += Number(h.unrealised_gain || 0)
+        acc.portfolio_pct += Number(h.portfolio_pct || 0)
+        return acc
+      },
+      { market_value: 0, investment_value: 0, unrealised_gain: 0, portfolio_pct: 0 }
+    )
+
+  const mfGrand = useMemo(() => {
+    if (selected !== "Mutual Fund") return null
+    return calcHoldingTotals([...mfRegular, ...mfDirect])
+  }, [mfRegular, mfDirect, selected])
+
   if (loading || !portfolio.summary) {
     return (
       <div className="min-h-screen bg-dark text-white p-4 sm:p-6 lg:p-8">
@@ -303,11 +330,7 @@ export default function App() {
 
         {activeTab === "overview" && (
           <>
-            <motion.section
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-6"
-            >
+            <motion.section initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-6">
               <div className="xl:col-span-2 bg-card border border-border rounded-3xl p-6 lg:p-8">
                 <div className="flex items-center justify-between mb-6">
                   <div>
@@ -322,31 +345,14 @@ export default function App() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <StatCard
-                    icon={<DollarSign className="w-5 h-5 text-primary" />}
-                    label="Net Worth (SGD)"
-                    value={money0(portfolio.summary.networth_sgd)}
-                  />
-                  <StatCard
-                    icon={<TrendingUp className="w-5 h-5 text-success" />}
-                    label="Total Profit (SGD)"
-                    value={money0(portfolio.summary.profit_sgd)}
-                    positive={portfolio.summary.profit_sgd >= 0}
-                  />
-                  <StatCard
-                    icon={<PieIcon className="w-5 h-5 text-yellow-400" />}
-                    label="Asset Classes"
-                    value={(assetClasses.length || 0).toString()}
-                  />
+                  <StatCard icon={<DollarSign className="w-5 h-5 text-primary" />} label="Net Worth (SGD)" value={money0(portfolio.summary.networth_sgd)} />
+                  <StatCard icon={<TrendingUp className="w-5 h-5 text-success" />} label="Total Profit (SGD)" value={money0(portfolio.summary.profit_sgd)} positive={portfolio.summary.profit_sgd >= 0} />
+                  <StatCard icon={<PieIcon className="w-5 h-5 text-yellow-400" />} label="Asset Classes" value={(assetClasses.length || 0).toString()} />
                 </div>
               </div>
             </motion.section>
 
-            <motion.section
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-card border border-border rounded-3xl p-6 lg:p-8 mb-6"
-            >
+            <motion.section initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="bg-card border border-border rounded-3xl p-6 lg:p-8 mb-6">
               <div className="flex items-center justify-between mb-5">
                 <h2 className="text-2xl font-semibold flex items-center gap-2">
                   <Layers3 className="w-5 h-5 text-primary" />
@@ -381,12 +387,8 @@ export default function App() {
                         <td className="py-4 px-2 font-semibold truncate">{row.asset_class}</td>
                         <td className="py-4 px-2 text-right">{money0(row.value_sgd)}</td>
                         <td className="py-4 px-2 text-right">{money0(row.investment_sgd)}</td>
-                        <td className={`py-4 px-2 text-right font-semibold ${Number(row.profit_sgd || 0) >= 0 ? "text-success" : "text-danger"}`}>
-                          {money0(row.profit_sgd)}
-                        </td>
-                        <td className={`py-4 px-2 text-right font-semibold ${Number(row.profit_pct || 0) >= 0 ? "text-success" : "text-danger"}`}>
-                          {pct2(row.profit_pct)}
-                        </td>
+                        <td className={`py-4 px-2 text-right font-semibold ${Number(row.profit_sgd || 0) >= 0 ? "text-success" : "text-danger"}`}>{money0(row.profit_sgd)}</td>
+                        <td className={`py-4 px-2 text-right font-semibold ${Number(row.profit_pct || 0) >= 0 ? "text-success" : "text-danger"}`}>{pct2(row.profit_pct)}</td>
                         <td className="py-4 px-2 text-right">{pct2(row.portfolio_pct)}</td>
                       </motion.tr>
                     ))}
@@ -395,12 +397,8 @@ export default function App() {
                       <td className="py-4 px-2">Total</td>
                       <td className="py-4 px-2 text-right">{money0(assetTotals.value)}</td>
                       <td className="py-4 px-2 text-right">{money0(assetTotals.investment)}</td>
-                      <td className={`py-4 px-2 text-right ${assetTotals.profit >= 0 ? "text-success" : "text-danger"}`}>
-                        {money0(assetTotals.profit)}
-                      </td>
-                      <td className={`py-4 px-2 text-right ${totalProfitPct >= 0 ? "text-success" : "text-danger"}`}>
-                        {pct2(totalProfitPct)}
-                      </td>
+                      <td className={`py-4 px-2 text-right ${assetTotals.profit >= 0 ? "text-success" : "text-danger"}`}>{money0(assetTotals.profit)}</td>
+                      <td className={`py-4 px-2 text-right ${totalProfitPct >= 0 ? "text-success" : "text-danger"}`}>{pct2(totalProfitPct)}</td>
                       <td className="py-4 px-2 text-right">{pct2(totalPortfolioPct)}</td>
                     </tr>
                   </tbody>
@@ -411,11 +409,7 @@ export default function App() {
         )}
 
         {activeTab === "holdings" && (
-          <motion.section
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-card border border-border rounded-3xl p-4 sm:p-6 lg:p-8 min-w-0"
-          >
+          <motion.section initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="bg-card border border-border rounded-3xl p-4 sm:p-6 lg:p-8 min-w-0">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between mb-5">
               <div>
                 <h2 className="text-2xl font-semibold">Holdings Drill-Down</h2>
@@ -473,26 +467,23 @@ export default function App() {
                     expanded={cashExpanded}
                     setExpanded={setCashExpanded}
                   />
+                ) : selected === "Mutual Fund" ? (
+                  <MfsGroupedView
+                    holdings={currentHoldings}
+                    loading={holdingsLoading}
+                    sortConfig={sortConfig}
+                    renderSortHeader={renderSortHeader}
+                    money0={money0}
+                    money2={money2}
+                    pct2={pct2}
+                  />
                 ) : (
                   <>
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-                      <SummaryTile
-                        label="Market Value"
-                        value={money0(currentHoldings.reduce((a, b) => a + Number(b.market_value || 0), 0))}
-                      />
-                      <SummaryTile
-                        label="Investment"
-                        value={money0(currentHoldings.reduce((a, b) => a + Number(b.investment_value || 0), 0))}
-                      />
-                      <SummaryTile
-                        label="Gain"
-                        value={money0(currentHoldings.reduce((a, b) => a + Number(b.unrealised_gain || 0), 0))}
-                        positive={currentHoldings.reduce((a, b) => a + Number(b.unrealised_gain || 0), 0) >= 0}
-                      />
-                      <SummaryTile
-                        label="Portfolio %"
-                        value={pct2(currentHoldings.reduce((a, b) => a + Number(b.portfolio_pct || 0), 0))}
-                      />
+                      <SummaryTile label="Market Value" value={money0(currentHoldings.reduce((a, b) => a + Number(b.market_value || 0), 0))} />
+                      <SummaryTile label="Investment" value={money0(currentHoldings.reduce((a, b) => a + Number(b.investment_value || 0), 0))} />
+                      <SummaryTile label="Gain" value={money0(currentHoldings.reduce((a, b) => a + Number(b.unrealised_gain || 0), 0))} positive={currentHoldings.reduce((a, b) => a + Number(b.unrealised_gain || 0), 0) >= 0} />
+                      <SummaryTile label="Portfolio %" value={pct2(currentHoldings.reduce((a, b) => a + Number(b.portfolio_pct || 0), 0))} />
                     </div>
 
                     <div className="bg-dark/40 border border-border rounded-2xl overflow-hidden min-w-0">
@@ -513,15 +504,11 @@ export default function App() {
                           <tbody>
                             {holdingsLoading ? (
                               <tr>
-                                <td colSpan={8} className="py-8 text-center text-gray-400">
-                                  Loading holdings...
-                                </td>
+                                <td colSpan={8} className="py-8 text-center text-gray-400">Loading holdings...</td>
                               </tr>
                             ) : sortedHoldings.length === 0 ? (
                               <tr>
-                                <td colSpan={8} className="py-8 text-center text-gray-400">
-                                  No holdings found for {selected || "this asset class"}.
-                                </td>
+                                <td colSpan={8} className="py-8 text-center text-gray-400">No holdings found for {selected || "this asset class"}.</td>
                               </tr>
                             ) : (
                               sortedHoldings.map((h, i) => (
@@ -531,12 +518,8 @@ export default function App() {
                                   <td className="py-4 px-3 text-right">{money2(h.current_price)}</td>
                                   <td className="py-4 px-3 text-right">{money0(h.market_value)}</td>
                                   <td className="py-4 px-3 text-right">{money0(h.investment_value)}</td>
-                                  <td className={`py-4 px-3 text-right font-semibold ${Number(h.unrealised_gain || 0) >= 0 ? "text-success" : "text-danger"}`}>
-                                    {money0(h.unrealised_gain)}
-                                  </td>
-                                  <td className={`py-4 px-3 text-right font-semibold ${Number(h.unrealised_gain_pct || 0) >= 0 ? "text-success" : "text-danger"}`}>
-                                    {pct2(h.unrealised_gain_pct)}
-                                  </td>
+                                  <td className={`py-4 px-3 text-right font-semibold ${Number(h.unrealised_gain || 0) >= 0 ? "text-success" : "text-danger"}`}>{money0(h.unrealised_gain)}</td>
+                                  <td className={`py-4 px-3 text-right font-semibold ${Number(h.unrealised_gain_pct || 0) >= 0 ? "text-success" : "text-danger"}`}>{pct2(h.unrealised_gain_pct)}</td>
                                   <td className="py-4 px-3 text-right">{pct2(h.portfolio_pct)}</td>
                                 </tr>
                               ))
@@ -558,14 +541,7 @@ export default function App() {
               <ChartPanel title="Asset Allocation" icon={<PieIcon className="w-5 h-5 text-primary" />}>
                 <ResponsiveContainer width="100%" height={320}>
                   <PieChart>
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: "#111820",
-                        border: "1px solid #1C2635",
-                        borderRadius: "8px",
-                        color: "#fff"
-                      }}
-                    />
+                    <Tooltip contentStyle={{ backgroundColor: "#111820", border: "1px solid #1C2635", borderRadius: "8px", color: "#fff" }} />
                     <Pie data={allocation} dataKey="value" outerRadius={120} innerRadius={68} paddingAngle={2}>
                       {allocation.map((x, i) => (
                         <Cell key={i} fill={COLORS[i % COLORS.length]} />
@@ -581,14 +557,7 @@ export default function App() {
                     <CartesianGrid strokeDasharray="3 3" stroke="#1C2635" />
                     <XAxis dataKey="country" stroke="#7F8A9B" tick={{ fill: "#7F8A9B" }} />
                     <YAxis stroke="#7F8A9B" tick={{ fill: "#7F8A9B" }} />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: "#111820",
-                        border: "1px solid #1C2635",
-                        borderRadius: "8px",
-                        color: "#fff"
-                      }}
-                    />
+                    <Tooltip contentStyle={{ backgroundColor: "#111820", border: "1px solid #1C2635", borderRadius: "8px", color: "#fff" }} />
                     <Bar dataKey="value" fill="#00D4FF" radius={[8, 8, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
@@ -606,18 +575,9 @@ export default function App() {
                 </div>
                 <p className="text-sm text-gray-400 mb-6">/ 100 score</p>
                 <div className="space-y-3">
-                  <MiniMetric
-                    label="Largest holding"
-                    value={`${analytics.concentration?.largest_holding_pct?.toFixed?.(1) || 0}%`}
-                  />
-                  <MiniMetric
-                    label="Top 5"
-                    value={`${analytics.concentration?.top5_pct?.toFixed?.(1) || 0}%`}
-                  />
-                  <MiniMetric
-                    label="Top 10"
-                    value={`${analytics.concentration?.top10_pct?.toFixed?.(1) || 0}%`}
-                  />
+                  <MiniMetric label="Largest holding" value={`${analytics.concentration?.largest_holding_pct?.toFixed?.(1) || 0}%`} />
+                  <MiniMetric label="Top 5" value={`${analytics.concentration?.top5_pct?.toFixed?.(1) || 0}%`} />
+                  <MiniMetric label="Top 10" value={`${analytics.concentration?.top10_pct?.toFixed?.(1) || 0}%`} />
                 </div>
               </div>
 
@@ -643,6 +603,104 @@ export default function App() {
           </motion.section>
         )}
       </div>
+    </div>
+  )
+}
+
+function MfsGroupedView({ holdings = [], loading = false, money0, money2, pct2 }) {
+  const getSource = h => String(h.group_name || h.sheet_name || h.source_sheet || h.sheet || h.category || "").trim()
+
+  const regularRows = holdings.filter(h => getSource(h).includes("MF-SK"))
+  const directRows = holdings.filter(h => getSource(h).includes("Mutual Funds - Direct"))
+
+  const calcTotals = rows =>
+    rows.reduce(
+      (acc, h) => {
+        acc.market_value += Number(h.market_value || 0)
+        acc.investment_value += Number(h.investment_value || 0)
+        acc.unrealised_gain += Number(h.unrealised_gain || 0)
+        acc.unrealised_gain_pct += Number(h.unrealised_gain_pct || 0)
+        acc.portfolio_pct += Number(h.portfolio_pct || 0)
+        return acc
+      },
+      { market_value: 0, investment_value: 0, unrealised_gain: 0, unrealised_gain_pct: 0, portfolio_pct: 0 }
+    )
+
+  const regularTotals = calcTotals(regularRows)
+  const directTotals = calcTotals(directRows)
+  const grandTotals = calcTotals([...regularRows, ...directRows])
+
+  const GroupTable = ({ title, rows, totals }) => (
+    <div className="bg-dark/40 border border-border rounded-2xl overflow-hidden min-w-0">
+      <div className="px-4 py-3 border-b border-border">
+        <div className="font-semibold text-lg">{title}</div>
+        <div className="text-xs text-gray-500 mt-1">{rows.length} holdings</div>
+      </div>
+
+      <div className="overflow-x-auto max-w-full">
+        <table className="w-full min-w-[1100px] table-fixed">
+          <thead className="sticky top-0 z-10 bg-dark/95 backdrop-blur border-b border-border">
+            <tr className="text-sm text-gray-400">
+              <th className="py-3 px-3 text-left font-semibold w-[34%]">Name</th>
+              <th className="py-3 px-3 text-right font-semibold w-[18%]">Qty</th>
+              <th className="py-3 px-3 text-right font-semibold w-[16%]">Price</th>
+              <th className="py-3 px-3 text-right font-semibold w-[18%]">Market Value</th>
+              <th className="py-3 px-3 text-right font-semibold w-[18%]">Investment</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="py-8 text-center text-gray-400">
+                  No holdings in this section.
+                </td>
+              </tr>
+            ) : (
+              rows.map((h, i) => (
+                <tr key={i} className="border-b border-border/60 hover:bg-hover transition-colors">
+                  <td className="py-4 px-3 font-semibold truncate">{h.asset || "-"}</td>
+                  <td className="py-4 px-3 text-right">{money0(h.qty)}</td>
+                  <td className="py-4 px-3 text-right">{money2(h.current_price)}</td>
+                  <td className="py-4 px-3 text-right">{money0(h.market_value)}</td>
+                  <td className="py-4 px-3 text-right">{money0(h.investment_value)}</td>
+                </tr>
+              ))
+            )}
+
+            <tr className="border-t border-border bg-dark/70 font-semibold">
+              <td className="py-4 px-3">Subtotal</td>
+              <td className="py-4 px-3 text-right">{money0(rows.reduce((a, b) => a + Number(b.qty || 0), 0))}</td>
+              <td className="py-4 px-3 text-right">-</td>
+              <td className="py-4 px-3 text-right">{money0(totals.market_value)}</td>
+              <td className="py-4 px-3 text-right">{money0(totals.investment_value)}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+
+  return (
+    <div className="space-y-6 min-w-0">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <SummaryTile label="Market Value" value={money0(grandTotals.market_value)} />
+        <SummaryTile label="Investment" value={money0(grandTotals.investment_value)} />
+        <SummaryTile label="Gain" value={money0(grandTotals.unrealised_gain)} positive={grandTotals.unrealised_gain >= 0} />
+      </div>
+
+      {loading ? (
+        <div className="bg-dark/40 border border-border rounded-2xl p-8 text-gray-400">Loading mutual fund holdings...</div>
+      ) : (
+        <>
+          <GroupTable title="Regular" rows={regularRows} totals={regularTotals} />
+          <GroupTable title="Direct" rows={directRows} totals={directTotals} />
+
+          <div className="bg-card border border-border rounded-2xl p-4 flex items-center justify-between font-semibold">
+            <span>Grand Total</span>
+            <span>SGD {money0(grandTotals.market_value)}</span>
+          </div>
+        </>
+      )}
     </div>
   )
 }
@@ -675,11 +733,7 @@ function MiniMetric({ label, value }) {
 
 function ChartPanel({ title, icon, children }) {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="bg-card rounded-3xl border border-border p-6"
-    >
+    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-card rounded-3xl border border-border p-6">
       <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
         {icon}
         {title}
